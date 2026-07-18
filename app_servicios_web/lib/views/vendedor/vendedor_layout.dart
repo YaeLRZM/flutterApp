@@ -5,40 +5,33 @@ import '../../widgets/global_bottom_bar.dart';
 import '../../widgets/global_side_menu.dart';
 import '../../widgets/global_chatbot_button.dart';
 
-// 2. IMPORTAMOS TUS VISTAS PRINCIPALES
-import 'views/home_view.dart';
-import 'views/collections_view.dart';
-import 'views/favorites_view.dart';
-import 'views/cart_view.dart';
+// 2. IMPORTAMOS TUS VISTAS DE VENDEDOR
+import 'views/home_view_vendedor.dart';
+import 'views/productos_view.dart';
+import 'views/ventas_view.dart';
+import 'views/tienda_view.dart';
 
-class UserLayout extends StatefulWidget {
-  const UserLayout({super.key});
+class VendedorLayout extends StatefulWidget {
+  const VendedorLayout({super.key});
 
   @override
-  State<UserLayout> createState() => _UserLayoutState();
+  State<VendedorLayout> createState() => _VendedorLayoutState();
 }
 
-class _UserLayoutState extends State<UserLayout> {
+class _VendedorLayoutState extends State<VendedorLayout> {
   bool _isDrawerOpen = false;
-  int _bottomNavIndex = 0; // 0: Inicio, 1: Colecciones, 2: Favoritos, 3: Carrito (solo FAB)
+  int _bottomNavIndex = 0; // 0: Inicio, 1: Productos, 2: Ventas, 3: Mi tienda
 
   final List<Widget> _views = [
-    const HomeView(),
-    const CollectionsView(),
-    const FavoritesView(),
-    const CartView(),
+    const HomeViewVendedor(),
+    const ProductosView(),
+    const VentasView(),
+    const TiendaView(),
   ];
 
   void _toggleDrawer() {
     setState(() {
       _isDrawerOpen = !_isDrawerOpen;
-    });
-  }
-
-  void _goToCart() {
-    setState(() {
-      _bottomNavIndex = 3; // cambia a la vista carrito
-      if (_isDrawerOpen) _isDrawerOpen = false;
     });
   }
 
@@ -83,11 +76,8 @@ class _UserLayoutState extends State<UserLayout> {
                   : BorderRadius.zero,
               child: Scaffold(
                 backgroundColor: Colors.transparent,
-                appBar: GlobalTopBar(
-                  title: _bottomNavIndex == 3
-                      ? 'Carrito de Compras'
-                      : 'Ixé Moda',
-                  showSearch: _bottomNavIndex != 3, // sin búsqueda en carrito
+                appBar: GlobalTopBar.seller(
+                  title: 'Panel de Vendedor',
                 ),
                 body: Stack(
                   children: [
@@ -98,24 +88,29 @@ class _UserLayoutState extends State<UserLayout> {
                     const GlobalChatbotButton(),
                   ],
                 ),
-                floatingActionButtonLocation:
-                    FloatingActionButtonLocation.centerDocked,
-                floatingActionButton: FloatingActionButton(
-                  heroTag: 'cart_btn',
-                  onPressed: _goToCart,
-                  backgroundColor: const Color(0xFFD81B60),
-                  shape: const CircleBorder(),
-                  elevation: 4,
-                  child: const Icon(
-                    Icons.shopping_bag_outlined,
-                    color: Colors.white,
-                    size: 28,
-                  ),
-                ),
+                // En VendedorLayout, dentro del Scaffold:
+floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
+floatingActionButton: FloatingActionButton(
+  heroTag: 'vendor_fab',
+  onPressed: () {
+    // Navegar a la pestaña de Ventas (índice 2)
+    setState(() {
+      _bottomNavIndex = 2;
+    });
+  },
+  backgroundColor: const Color(0xFFD81B60),
+  shape: const CircleBorder(),
+  elevation: 4,
+  child: const Icon(
+    Icons.attach_money, // o Icons.sell, Icons.trending_up, etc.
+    color: Colors.white,
+    size: 28,
+  ),
+),
                 bottomNavigationBar: GlobalBottomBar(
                   currentIndex: _bottomNavIndex,
                   isDrawerOpen: _isDrawerOpen,
-                  isSeller: false, // modo cliente
+                  isSeller: true, // modo vendedor
                   onTabSelected: (index) {
                     setState(() => _bottomNavIndex = index);
                   },

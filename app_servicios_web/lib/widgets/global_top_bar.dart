@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+enum UserType { client, seller }
+
 class GlobalTopBar extends StatelessWidget implements PreferredSizeWidget {
   final String title;
   final bool showSearch;
@@ -11,17 +13,41 @@ class GlobalTopBar extends StatelessWidget implements PreferredSizeWidget {
     this.showSearch = true,
   });
 
+  // Constructor para vendedor
+  const GlobalTopBar.seller({
+    super.key,
+    this.title = 'Ixé Moda - Vendedor',
+  }) : showSearch = false;
+
+  // Factory según tipo de usuario
+  factory GlobalTopBar.forUserType({
+    required UserType userType,
+    String title = 'Ixé Moda',
+  }) {
+    switch (userType) {
+      case UserType.client:
+        return GlobalTopBar(title: title, showSearch: true);
+      case UserType.seller:
+        return GlobalTopBar.seller(title: title);
+    }
+  }
+
   @override
-  Size get preferredSize => const Size.fromHeight(130);
+  Size get preferredSize {
+    // Altura dinámica según si hay buscador o no
+    return Size.fromHeight(showSearch ? 130 : 85);
+  }
 
   @override
   Widget build(BuildContext context) {
+    final safeTop = MediaQuery.of(context).padding.top;
+
     return Container(
       padding: EdgeInsets.only(
-        top: MediaQuery.of(context).padding.top + 10,
+        top: safeTop + 12,
         left: 20,
         right: 20,
-        bottom: 20,
+        bottom: showSearch ? 20 : 16, // menos padding inferior si no hay buscador
       ),
       decoration: const BoxDecoration(
         color: Color(0xFFD81B60),
@@ -37,7 +63,7 @@ class GlobalTopBar extends StatelessWidget implements PreferredSizeWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                title, // 👈 Usamos el título dinámico
+                title,
                 style: GoogleFonts.poppins(
                   fontSize: 24,
                   fontWeight: FontWeight.w700,
@@ -67,9 +93,10 @@ class GlobalTopBar extends StatelessWidget implements PreferredSizeWidget {
               ),
             ],
           ),
-          const SizedBox(height: 15),
-          // Buscador - condicional
+
+          // Buscador solo si está activado
           if (showSearch) ...[
+            const SizedBox(height: 18),
             Container(
               height: 45,
               decoration: BoxDecoration(
@@ -90,7 +117,8 @@ class GlobalTopBar extends StatelessWidget implements PreferredSizeWidget {
                 ),
               ),
             ),
-          ],
+          ] else
+            const SizedBox(height: 8), // pequeño espacio cuando no hay buscador
         ],
       ),
     );

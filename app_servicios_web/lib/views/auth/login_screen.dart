@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../services/api_service.dart';
 import '../user/user_layout.dart';
+import '../vendedor/vendedor_layout.dart'; // Asegúrate de que la ruta sea correcta
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -18,36 +19,73 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _isLoading = false;
   bool _rememberMe = false;
 
-  // Variable para controlar el toggle: false = Usuario, true = Vendedor
+  // Controla el toggle: false = Usuario, true = Vendedor
   bool _isSeller = false;
 
   void _login() async {
-    setState(() => _isLoading = true);
+  setState(() => _isLoading = true);
 
-    // Aquí puedes mandar '_isSeller' a tu API si lo necesitas para validar el rol
-    final apiService = ApiService();
-    final response = await apiService.login(
-      _emailController.text.trim(),
-      _passwordController.text.trim(),
-    );
+  final apiService = ApiService();
+  final response = await apiService.login(
+    _emailController.text.trim(),
+    _passwordController.text.trim(),
+  );
 
-    setState(() => _isLoading = false);
+  setState(() => _isLoading = false);
 
-    if (response['success']) {
-      // Redirigir a la nueva pantalla principal
+  if (response['success'] == true) {
+    final String userRole = (response['role'] ?? '').toString().toLowerCase().trim();
+
+    // === BLOQUEO DE ADMIN ===
+    if (userRole == 'admin') {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Los administradores deben usar el panel web.'),
+          backgroundColor: Colors.orange,
+          duration: const Duration(seconds: 4),
+        ),
+      );
+      return;
+    }
+
+    final bool isSellerActual = userRole == 'vendedor' || userRole.contains('seller');
+
+    final bool isSellerExpected = _isSeller;
+
+    // Validar que el toggle coincida con el rol real
+    if (isSellerActual != isSellerExpected) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(isSellerExpected
+              ? 'Esta cuenta no es de vendedor.'
+              : 'Esta cuenta es de vendedor. Selecciona "Vendedor".'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    // Navegación
+    if (isSellerActual) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const VendedorLayout()),
+      );
+    } else {
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (_) => const UserLayout()),
       );
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(response['message']),
-          backgroundColor: Colors.red,
-        ),
-      );
     }
+  } else {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(response['message'] ?? 'Error al iniciar sesión'),
+        backgroundColor: Colors.red,
+      ),
+    );
   }
+}
 
   @override
   Widget build(BuildContext context) {
@@ -61,13 +99,16 @@ class _LoginScreenState extends State<LoginScreen> {
       body: Stack(
         fit: StackFit.expand,
         children: [
+          // Fondo con imagen
           Image.asset('assets/images/fondoRosa.png', fit: BoxFit.cover),
 
+          // Efecto de desenfoque
           BackdropFilter(
             filter: ImageFilter.blur(sigmaX: 7.0, sigmaY: 7.0),
             child: Container(color: Colors.white.withOpacity(0.1)),
           ),
 
+          // Contenido centrado
           Center(
             child: SingleChildScrollView(
               padding: const EdgeInsets.symmetric(horizontal: 24.0),
@@ -104,7 +145,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     const SizedBox(height: 25),
 
-                    // --- INICIO DEL TOGGLE ---
+                    // --- TOGGLE USUARIO / VENDEDOR ---
                     Container(
                       height: 45,
                       decoration: BoxDecoration(
@@ -164,10 +205,11 @@ class _LoginScreenState extends State<LoginScreen> {
                         ],
                       ),
                     ),
+                    // --- FIN TOGGLE ---
 
-                    // --- FIN DEL TOGGLE ---
                     const SizedBox(height: 25),
 
+                    // Campo Email
                     TextField(
                       controller: _emailController,
                       keyboardType: TextInputType.emailAddress,
@@ -198,6 +240,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     const SizedBox(height: 20),
 
+                    // Campo Contraseña
                     TextField(
                       controller: _passwordController,
                       obscureText: _obscurePassword,
@@ -237,6 +280,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     const SizedBox(height: 10),
 
+                    // Recuérdame y Olvidé contraseña
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
@@ -260,17 +304,23 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                           ],
                         ),
-                        Text(
-                          'Olvidé mi contraseña',
-                          style: GoogleFonts.dmSans(
-                            fontSize: 13,
-                            color: Colors.black87,
+                        GestureDetector(
+                          onTap: () {
+                            // Aquí puedes navegar a la pantalla de recuperación
+                          },
+                          child: Text(
+                            'Olvidé mi contraseña',
+                            style: GoogleFonts.dmSans(
+                              fontSize: 13,
+                              color: Colors.black87,
+                            ),
                           ),
                         ),
                       ],
                     ),
                     const SizedBox(height: 20),
 
+                    // Botón Ingresar
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton(

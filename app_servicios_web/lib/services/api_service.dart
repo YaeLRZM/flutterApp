@@ -7,7 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 class ApiService {
   // Cambia esto dependiendo de si usas emulador o teléfono físico
   static const bool useAndroidEmulator =
-      true; // true si usas el emulador de Android Studio
+      false; // true si usas el emulador de Android Studio
 
   static String get baseUrl {
     if (kIsWeb) {
@@ -26,34 +26,35 @@ class ApiService {
   }
 
   Future<Map<String, dynamic>> login(String email, String password) async {
-    try {
-      final response = await http.post(
-        Uri.parse('$baseUrl/login'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-        body: jsonEncode({'email': email, 'password': password}),
-      );
+  try {
+    final response = await http.post(
+      Uri.parse('$baseUrl/login'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      body: jsonEncode({'email': email, 'password': password}),
+    );
 
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
+    final data = jsonDecode(response.body);
 
-        if (data.containsKey('access_token')) {
-          final prefs = await SharedPreferences.getInstance();
-          await prefs.setString('jwt_token', data['access_token']);
-        }
+    if (response.statusCode == 200 && data['success'] == true) {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('jwt_token', data['access_token']);
 
-        return {'success': true, 'data': data};
-      } else {
-        return {
-          'success': false,
-          'message':
-              jsonDecode(response.body)['message'] ?? 'Error de credenciales',
-        };
-      }
-    } catch (e) {
-      return {'success': false, 'message': 'Error de conexión: $e'};
+      return {
+        'success': true,
+        'role': data['role'],
+        'data': data,
+      };
+    } else {
+      return {
+        'success': false,
+        'message': data['error'] ?? data['message'] ?? 'Error de credenciales',
+      };
     }
+  } catch (e) {
+    return {'success': false, 'message': 'Error de conexión: $e'};
   }
+}
 }
