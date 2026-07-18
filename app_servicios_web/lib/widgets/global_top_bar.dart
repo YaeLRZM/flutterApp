@@ -2,10 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class GlobalTopBar extends StatelessWidget implements PreferredSizeWidget {
-  const GlobalTopBar({super.key});
+  final String title;
+  final bool showSearch;
+
+  const GlobalTopBar({
+    super.key,
+    this.title = 'Ixé Moda',
+    this.showSearch = true,
+  });
 
   @override
-  Size get preferredSize => const Size.fromHeight(130); // Altura ampliada
+  Size get preferredSize => const Size.fromHeight(130);
 
   @override
   Widget build(BuildContext context) {
@@ -30,7 +37,7 @@ class GlobalTopBar extends StatelessWidget implements PreferredSizeWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'Ixé Moda',
+                title, // 👈 Usamos el título dinámico
                 style: GoogleFonts.poppins(
                   fontSize: 24,
                   fontWeight: FontWeight.w700,
@@ -61,27 +68,29 @@ class GlobalTopBar extends StatelessWidget implements PreferredSizeWidget {
             ],
           ),
           const SizedBox(height: 15),
-          // Buscador
-          Container(
-            height: 45,
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
-              borderRadius: BorderRadius.circular(25),
-            ),
-            child: TextField(
-              style: const TextStyle(color: Colors.white),
-              decoration: InputDecoration(
-                hintText: 'Buscar en Ixé Moda',
-                hintStyle: TextStyle(color: Colors.white.withOpacity(0.7)),
-                prefixIcon: Icon(
-                  Icons.search,
-                  color: Colors.white.withOpacity(0.7),
+          // Buscador - condicional
+          if (showSearch) ...[
+            Container(
+              height: 45,
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(25),
+              ),
+              child: TextField(
+                style: const TextStyle(color: Colors.white),
+                decoration: InputDecoration(
+                  hintText: 'Buscar en Ixé Moda',
+                  hintStyle: TextStyle(color: Colors.white.withOpacity(0.7)),
+                  prefixIcon: Icon(
+                    Icons.search,
+                    color: Colors.white.withOpacity(0.7),
+                  ),
+                  border: InputBorder.none,
+                  contentPadding: const EdgeInsets.symmetric(vertical: 12),
                 ),
-                border: InputBorder.none,
-                contentPadding: const EdgeInsets.symmetric(vertical: 12),
               ),
             ),
-          ),
+          ],
         ],
       ),
     );

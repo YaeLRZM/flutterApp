@@ -1,0 +1,86 @@
+import '../models/artesano.dart';
+
+/// Los `id` coinciden con los `artesanoId` usados en `mock_articulos.dart`
+/// para que la vista de detalle pueda cruzar la información.
+final List<Artesano> mockArtesanos = [
+  const Artesano(
+    id: 1,
+    nombre: 'Juana Bautista',
+    titulo: 'Maestra Artesana',
+    region: 'San Antonino Castillo Velasco, Oaxaca',
+    verificado: true,
+    avatarUrl: 'mock://artesano_1',
+  ),
+  const Artesano(
+    id: 2,
+    nombre: 'Fidel Cruz',
+    titulo: 'Maestro Artesano',
+    region: 'San Martín Tilcajete, Oaxaca',
+    verificado: true,
+    avatarUrl: 'mock://artesano_2',
+  ),
+  const Artesano(
+    id: 3,
+    nombre: 'Rosa Mendoza',
+    titulo: 'Maestra Alfarera',
+    region: 'San Bartolo Coyotepec, Oaxaca',
+    verificado: true,
+    avatarUrl: 'mock://artesano_3',
+  ),
+  const Artesano(
+    id: 4,
+    nombre: 'Efraín Ramírez',
+    titulo: 'Maestro Talabartero',
+    region: 'Villa de Zaachila, Oaxaca',
+    verificado: false,
+    avatarUrl: 'mock://artesano_4',
+  ),
+  const Artesano(
+    id: 5,
+    nombre: 'Delfina Ortiz',
+    titulo: 'Maestra Artesana',
+    region: 'San Pedro Amuzgos, Oaxaca',
+    verificado: true,
+    avatarUrl: 'mock://artesano_5',
+  ),
+  const Artesano(
+    id: 6,
+    nombre: 'Marcelina Sosa',
+    titulo: 'Maestra Rebocera',
+    region: 'Santa María del Río, San Luis Potosí',
+    verificado: false,
+    avatarUrl: 'mock://artesano_6',
+  ),
+  const Artesano(
+    id: 7,
+    nombre: 'Higinio Pérez',
+    titulo: 'Maestro Platero',
+    region: 'San Bartolo Coyotepec, Oaxaca',
+    verificado: true,
+    avatarUrl: 'mock://artesano_7',
+  ),
+  const Artesano(
+    id: 8,
+    nombre: 'Concepción Vidal',
+    titulo: 'Maestra Talaverera',
+    region: 'Puebla de Zaragoza, Puebla',
+    verificado: true,
+    avatarUrl: 'mock://artesano_8',
+  ),
+  const Artesano(
+    id: 9,
+    nombre: 'Anselmo Gutiérrez',
+    titulo: 'Maestro Cestero',
+    region: 'Santa María Tlahuitoltepec, Oaxaca',
+    verificado: false,
+    avatarUrl: 'mock://artesano_9',
+  ),
+  const Artesano(
+    id: 10,
+    nombre: 'Herminia López',
+    titulo: 'Maestra Mezcalera',
+    region: 'Santiago Matatlán, Oaxaca',
+    verificado: true,
+    avatarUrl: 'mock://artesano_10',
+  ),
+];

@@ -7,6 +7,9 @@ import '../../widgets/global_chatbot_button.dart'; // <-- NUEVO IMPORT
 
 // 2. IMPORTAMOS TU VISTA PRINCIPAL
 import 'views/home_view.dart';
+import 'views/collections_view.dart';
+import 'views/favorites_view.dart';
+import 'views/cart_view.dart';
 
 class UserLayout extends StatefulWidget {
   const UserLayout({super.key});
@@ -21,13 +24,22 @@ class _UserLayoutState extends State<UserLayout> {
 
   final List<Widget> _views = [
     const HomeView(),
-    const Center(child: Text('Colecciones en blanco')),
-    const Center(child: Text('Favoritos en blanco')),
+    const CollectionsView(),
+    const FavoritesView(),
+    const CartView(),
   ];
 
   void _toggleDrawer() {
     setState(() {
       _isDrawerOpen = !_isDrawerOpen;
+    });
+  }
+
+  void _goToCart() {
+    setState(() {
+      _bottomNavIndex = 3; // Índice de CartView en _views
+      if (_isDrawerOpen)
+        _isDrawerOpen = false; // Cierra el menú si estaba abierto
     });
   }
 
@@ -73,7 +85,12 @@ class _UserLayoutState extends State<UserLayout> {
               child: Scaffold(
                 backgroundColor: Colors.transparent,
 
-                appBar: const GlobalTopBar(),
+                appBar: GlobalTopBar(
+                  title: _bottomNavIndex == 3
+                      ? 'Carrito de Compras'
+                      : 'Ixé Moda',
+                  showSearch: _bottomNavIndex != 3,
+                ),
 
                 // AQUÍ ESTÁ EL CAMBIO: Envolvemos el cuerpo en un Stack
                 body: Stack(
@@ -94,7 +111,12 @@ class _UserLayoutState extends State<UserLayout> {
                 floatingActionButton: FloatingActionButton(
                   heroTag:
                       'cart_btn', // Etiqueta para diferenciarlo del chatbot
-                  onPressed: () {},
+                  onPressed: () {
+                    setState(() {
+                      _bottomNavIndex = 3;
+                      if (_isDrawerOpen) _isDrawerOpen = false;
+                    });
+                  },
                   backgroundColor: const Color(0xFFD81B60),
                   shape: const CircleBorder(),
                   elevation: 4,

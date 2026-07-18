@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'screens/welcome_screen.dart';
+import 'views/welcome_screen.dart';
 
 void main() {
   runApp(const IxeModaApp());
