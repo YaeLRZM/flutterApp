@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
 class CategoryDetailView extends StatelessWidget {
-  const CategoryDetailView({super.key});
+  final String categoryTitle;
+
+  const CategoryDetailView({super.key, required this.categoryTitle});
 
   @override
   Widget build(BuildContext context) {
@@ -83,11 +85,11 @@ class CategoryDetailView extends StatelessWidget {
 
   // --- 1. Textos del Encabezado ---
   Widget _buildHeader() {
-    return const Column(
+    return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Textiles Oaxaqueños',
+          categoryTitle,
           style: TextStyle(
             fontSize: 28,
             fontWeight: FontWeight.w900,
