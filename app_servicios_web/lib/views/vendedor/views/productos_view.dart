@@ -14,10 +14,10 @@ class ProductosView extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         fontFamily: 'Inter',
-        scaffoldBackgroundColor: const Color(0xFFF3FBFF), // background
+        scaffoldBackgroundColor: const Color(0xFFF8F5F2), // Fondo Blanco Marfil
         colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF8C0049),
-          primary: const Color(0xFF8C0049),
+          seedColor: const Color(0xFFD81B60), // Rosa Bugambilia
+          primary: const Color(0xFFD81B60),
           surface: const Color(0xFFFFFFFF),
           error: const Color(0xFFBA1A1A),
         ),
@@ -31,7 +31,7 @@ class ProductCatalogView extends StatelessWidget {
   const ProductCatalogView({super.key});
 
   // Colores extraídos de la configuración
-  static const Color primaryColor = Color(0xFF8C0049);
+  static const Color primaryColor = Color(0xFFD81B60); // Rosa Bugambilia
   static const Color onSurface = Color(0xFF131D21);
   static const Color secondaryText = Color(0xFF5E6668);
   static const Color outlineVariant = Color(0xFFE0BEC6);
@@ -61,10 +61,7 @@ class ProductCatalogView extends StatelessWidget {
               const SizedBox(height: 8),
               const Text(
                 'Administra tu inventario de piezas artesanales exclusivas.',
-                style: TextStyle(
-                  fontSize: 16,
-                  color: secondaryText,
-                ),
+                style: TextStyle(fontSize: 16, color: secondaryText),
               ),
               const SizedBox(height: 24),
 
@@ -142,7 +139,8 @@ class ProductCatalogView extends StatelessWidget {
                 sku: 'IXE-2024-001',
                 price: '\$3,450',
                 stock: 12,
-                imageUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuCa36stQ0FL5NWIKZA6IqtvEXgJBgfas61-gx56uvyaVMcSx3iPQjdvLJdAnw_3zdfdEoHjJVL7CesWKSOdbKsRt7V9H1esjJV2Zh7OPaylRDfoZxz0NaHXgwEDuA991GwDedGjrI9YXvc36pOdk5dwyyXepAzcLBjKNd8oDq-1-Ahv-saYbbOnAmDQp1PeArz8juR8URJ2KoTl_W-oyaTNd1_hFvPAT5Ecj8mkauES49a9X9bgRn6GSg',
+                imageUrl:
+                    'https://lh3.googleusercontent.com/aida-public/AB6AXuCa36stQ0FL5NWIKZA6IqtvEXgJBgfas61-gx56uvyaVMcSx3iPQjdvLJdAnw_3zdfdEoHjJVL7CesWKSOdbKsRt7V9H1esjJV2Zh7OPaylRDfoZxz0NaHXgwEDuA991GwDedGjrI9YXvc36pOdk5dwyyXepAzcLBjKNd8oDq-1-Ahv-saYbbOnAmDQp1PeArz8juR8URJ2KoTl_W-oyaTNd1_hFvPAT5Ecj8mkauES49a9X9bgRn6GSg',
                 status: 'Activo',
                 statusColor: successColor,
               ),
@@ -152,7 +150,8 @@ class ProductCatalogView extends StatelessWidget {
                 sku: 'IXE-2024-042',
                 price: '\$1,890',
                 stock: 8,
-                imageUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuB7Ln7QyI1N1oZ8o6fH-DfT7ZkltFxGJCpvfKCDvj6kN4_MJCfwshYr37nDY2PYO7NI7LPP7sfaxwwFNh7rUSxYVphYzPbKeCnUpLbRRBZ873KEIXzdd93cZYihtyLQMpUcMDdO71gy6YlTG8AxSR005mP76SI0av5lw4mW5nNTmHFRt3KLh8TJjnrGlUE6e0he18lJwlKzILlcGrOeVYwTjiBS59pxMnpIP0ATgQMMOOtoZ3ePLEZSxQ',
+                imageUrl:
+                    'https://lh3.googleusercontent.com/aida-public/AB6AXuB7Ln7QyI1N1oZ8o6fH-DfT7ZkltFxGJCpvfKCDvj6kN4_MJCfwshYr37nDY2PYO7NI7LPP7sfaxwwFNh7rUSxYVphYzPbKeCnUpLbRRBZ873KEIXzdd93cZYihtyLQMpUcMDdO71gy6YlTG8AxSR005mP76SI0av5lw4mW5nNTmHFRt3KLh8TJjnrGlUE6e0he18lJwlKzILlcGrOeVYwTjiBS59pxMnpIP0ATgQMMOOtoZ3ePLEZSxQ',
                 status: 'Activo',
                 statusColor: successColor,
               ),
@@ -162,7 +161,8 @@ class ProductCatalogView extends StatelessWidget {
                 sku: 'IXE-2024-015',
                 price: '\$5,200',
                 stock: 0,
-                imageUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuCugRqvz2g_m76qyD6jSgRxqj6O4xhxLu1bd9pjny2Er0ECze5Nrus9x7BHIbj1x7ozTwoe3xfXDCxODYRNp4MTxwWiR0RnAqaG8JC6yNJS_LOADJChWNoiCfS1mudwOu8JE6PLS7VI8EZxHWJRdshFX0EqZofTHJNmFhZLF3V_xgo3vN1wzxwu5BVvLvFxfzqHQ7dYg9J6Xj82KycauFUOKumYDE_N7-EruYcpVQ-0AStxss0QkuZHfw',
+                imageUrl:
+                    'https://lh3.googleusercontent.com/aida-public/AB6AXuCugRqvz2g_m76qyD6jSgRxqj6O4xhxLu1bd9pjny2Er0ECze5Nrus9x7BHIbj1x7ozTwoe3xfXDCxODYRNp4MTxwWiR0RnAqaG8JC6yNJS_LOADJChWNoiCfS1mudwOu8JE6PLS7VI8EZxHWJRdshFX0EqZofTHJNmFhZLF3V_xgo3vN1wzxwu5BVvLvFxfzqHQ7dYg9J6Xj82KycauFUOKumYDE_N7-EruYcpVQ-0AStxss0QkuZHfw',
                 status: 'Inactivo',
                 statusColor: secondaryText,
                 isGrayscale: true,
@@ -173,7 +173,8 @@ class ProductCatalogView extends StatelessWidget {
                 sku: 'IXE-2024-009',
                 price: '\$1,250',
                 stock: 45,
-                imageUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuCMoEExc4moicjj4AiNHGRdnX0hgPlrpFKv_WnbV18-xjkyAgI_qg-pixs4Y4NyN_h_IARlTWvyMIEVEk0KoGSaMNOmIpj25aq5V9DjpQmn1uSXZ6MFT3tr0N2Td86cBIg2VWRXjRPJ5V_w2GWiXsSzVOANLqyX-I_4CbMtFxr7sKnU3Nh8jpwEOJbUpbo0U-axF6jJK8HkQqBgccnKcZq-jYCZ50yTD_jdXlZK7g12vskfR35KGY8jqQ',
+                imageUrl:
+                    'https://lh3.googleusercontent.com/aida-public/AB6AXuCMoEExc4moicjj4AiNHGRdnX0hgPlrpFKv_WnbV18-xjkyAgI_qg-pixs4Y4NyN_h_IARlTWvyMIEVEk0KoGSaMNOmIpj25aq5V9DjpQmn1uSXZ6MFT3tr0N2Td86cBIg2VWRXjRPJ5V_w2GWiXsSzVOANLqyX-I_4CbMtFxr7sKnU3Nh8jpwEOJbUpbo0U-axF6jJK8HkQqBgccnKcZq-jYCZ50yTD_jdXlZK7g12vskfR35KGY8jqQ',
                 status: 'Activo',
                 statusColor: successColor,
               ),
@@ -183,12 +184,13 @@ class ProductCatalogView extends StatelessWidget {
                 sku: 'IXE-2024-058',
                 price: '\$850',
                 stock: 2,
-                imageUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuAZZ48xhBAEmNGUQhqZqPKxDQVYMw4yaH4VWP867VSfeDiJlraZAYlQd3cmNRS7Quexu8Eb6etbUCm38gjLC24kLRAdyYBG5IuVgycOobFist_be-1Z8XOchzS0u6USot8EzhmZN8_tUQHcuG6F8PxhZoWr4zCB09NJ94nkWQvIPxf5QtkeESojCTvEYaC3s2gVtdVriHhs1QEOXbX-WmQotfOpKyNWMcVV6MEPtZuiqZBDQsG1c--Etg',
+                imageUrl:
+                    'https://lh3.googleusercontent.com/aida-public/AB6AXuAZZ48xhBAEmNGUQhqZqPKxDQVYMw4yaH4VWP867VSfeDiJlraZAYlQd3cmNRS7Quexu8Eb6etbUCm38gjLC24kLRAdyYBG5IuVgycOobFist_be-1Z8XOchzS0u6USot8EzhmZN8_tUQHcuG6F8PxhZoWr4zCB09NJ94nkWQvIPxf5QtkeESojCTvEYaC3s2gVtdVriHhs1QEOXbX-WmQotfOpKyNWMcVV6MEPtZuiqZBDQsG1c--Etg',
                 status: 'Bajo Stock',
                 statusColor: warningColor,
               ),
               const SizedBox(height: 16),
-              
+
               // Add New Product Placeholder Card
               _buildAddProductPlaceholder(),
             ],
@@ -204,9 +206,7 @@ class ProductCatalogView extends StatelessWidget {
       decoration: BoxDecoration(
         color: isSelected ? primaryColor : Colors.white,
         borderRadius: BorderRadius.circular(30),
-        border: Border.all(
-          color: isSelected ? primaryColor : outlineVariant,
-        ),
+        border: Border.all(color: isSelected ? primaryColor : outlineVariant),
       ),
       child: Text(
         label,
@@ -252,12 +252,31 @@ class ProductCatalogView extends StatelessWidget {
               ColorFiltered(
                 colorFilter: isGrayscale
                     ? const ColorFilter.matrix(<double>[
-                        0.2126, 0.7152, 0.0722, 0, 0,
-                        0.2126, 0.7152, 0.0722, 0, 0,
-                        0.2126, 0.7152, 0.0722, 0, 0,
-                        0,      0,      0,      1, 0,
+                        0.2126,
+                        0.7152,
+                        0.0722,
+                        0,
+                        0,
+                        0.2126,
+                        0.7152,
+                        0.0722,
+                        0,
+                        0,
+                        0.2126,
+                        0.7152,
+                        0.0722,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        1,
+                        0,
                       ])
-                    : const ColorFilter.mode(Colors.transparent, BlendMode.multiply),
+                    : const ColorFilter.mode(
+                        Colors.transparent,
+                        BlendMode.multiply,
+                      ),
                 child: Image.network(
                   imageUrl,
                   height: 250,
@@ -269,7 +288,10 @@ class ProductCatalogView extends StatelessWidget {
                 top: 16,
                 left: 16,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     color: statusColor.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(20),
@@ -308,9 +330,16 @@ class ProductCatalogView extends StatelessWidget {
                       shape: BoxShape.circle,
                     ),
                     child: IconButton(
-                      icon: const Icon(Icons.favorite_border, color: primaryColor, size: 20),
+                      icon: const Icon(
+                        Icons.favorite_border,
+                        color: primaryColor,
+                        size: 20,
+                      ),
                       onPressed: () {},
-                      constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+                      constraints: const BoxConstraints(
+                        minWidth: 40,
+                        minHeight: 40,
+                      ),
                       padding: EdgeInsets.zero,
                     ),
                   ),
@@ -398,7 +427,10 @@ class ProductCatalogView extends StatelessWidget {
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(30),
                         ),
-                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 24,
+                          vertical: 10,
+                        ),
                       ),
                     ),
                   ],
@@ -416,11 +448,13 @@ class ProductCatalogView extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(48.0),
       decoration: BoxDecoration(
-        color: const Color(0xFFEBF5FB).withOpacity(0.3), // surface-container-low
+        color: const Color(
+          0xFFF0EAE6,
+        ).withOpacity(0.5), // Tono neutro/crema suave sin ser azulado
         borderRadius: BorderRadius.circular(12),
-        // Nota: Flutter no tiene bordes dashed nativos para Container. 
-        // Para simularlo visualmente de forma limpia sin paquetes externos usamos un borde sólido sútil.
-        border: Border.all(color: outlineVariant, width: 2), 
+        // Nota: Flutter no tiene bordes dashed nativos para Container.
+        // Para simularlo visualmente de forma limpia sin paquetes externos usamos un borde sólido sutil.
+        border: Border.all(color: outlineVariant, width: 2),
       ),
       child: Column(
         children: [

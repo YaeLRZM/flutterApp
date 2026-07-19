@@ -26,6 +26,65 @@ class ArticuloService {
     );
   }
 
+  /// Regresa cuántos artículos hay por cada categoría, ej. {2: 5, 4: 3}.
+  /// Se usa en CollectionsView para mostrar "+N artículos" por categoría
+  /// y las estadísticas del encabezado.
+  ///
+  /// TODO: API -> esto normalmente vendría ya calculado desde Laravel,
+  /// ej. `Categoria::withCount('articulos')->get()`, en vez de contar en
+  /// el cliente sobre la lista completa.
+  Future<Map<int, int>> contarArticulosPorCategoria() async {
+    if (kUseMockData) {
+      await Future.delayed(const Duration(milliseconds: 150));
+      final conteo = <int, int>{};
+      for (final articulo in mockArticulos) {
+        conteo[articulo.categoriaId] = (conteo[articulo.categoriaId] ?? 0) + 1;
+      }
+      return conteo;
+    }
+
+    throw UnimplementedError(
+      'Conectar ArticuloService.contarArticulosPorCategoria() a la API de Laravel',
+    );
+  }
+
+  /// Regresa los artículos correspondientes a una lista de ids, en el
+  /// mismo orden en que se pidieron. Usado por `FavoritesView`.
+  ///
+  /// TODO: API -> GET /api/articulos?ids=1,2,3
+  Future<List<Articulo>> fetchArticulosPorIds(Iterable<int> ids) async {
+    if (kUseMockData) {
+      await Future.delayed(const Duration(milliseconds: 200));
+      final idsList = ids.toList();
+      final porId = {for (final a in mockArticulos) a.id: a};
+      return idsList.map((id) => porId[id]).whereType<Articulo>().toList();
+    }
+
+    throw UnimplementedError(
+      'Conectar ArticuloService.fetchArticulosPorIds() a la API de Laravel',
+    );
+  }
+
+  /// Regresa los artículos de una categoría (para CategoryDetailView).
+  ///
+  /// TODO: API -> GET /api/categorias/{categoriaId}/articulos?page=1
+  Future<List<Articulo>> fetchArticulosPorCategoria(
+    int categoriaId, {
+    int limit = kMaxArticulosCategoria,
+  }) async {
+    if (kUseMockData) {
+      await Future.delayed(const Duration(milliseconds: 300));
+      return mockArticulos
+          .where((a) => a.categoriaId == categoriaId)
+          .take(limit)
+          .toList();
+    }
+
+    throw UnimplementedError(
+      'Conectar ArticuloService.fetchArticulosPorCategoria() a la API de Laravel',
+    );
+  }
+
   /// Regresa un artículo específico (para la vista de detalle).
   ///
   /// TODO: API -> GET /api/articulos/{id}
@@ -62,6 +121,27 @@ class ArticuloService {
 
     throw UnimplementedError(
       'Conectar ArticuloService.fetchArticulosPorArtesano() a la API de Laravel',
+    );
+  }
+
+  /// Regresa cuántos artículos hay por categoría, ej. {2: 14, 3: 8, ...}.
+  /// Usado en las tarjetas de la vista de Colecciones ("+14 artículos").
+  ///
+  /// TODO: API -> GET /api/categorias/conteo-articulos
+  /// (o venir ya incluido como `articulos_count` en `GET /api/categorias`
+  /// si usan `withCount('articulos')` en el backend).
+  Future<Map<int, int>> fetchConteoArticulosPorCategoria() async {
+    if (kUseMockData) {
+      await Future.delayed(const Duration(milliseconds: 150));
+      final conteo = <int, int>{};
+      for (final articulo in mockArticulos) {
+        conteo[articulo.categoriaId] = (conteo[articulo.categoriaId] ?? 0) + 1;
+      }
+      return conteo;
+    }
+
+    throw UnimplementedError(
+      'Conectar ArticuloService.fetchConteoArticulosPorCategoria() a la API de Laravel',
     );
   }
 

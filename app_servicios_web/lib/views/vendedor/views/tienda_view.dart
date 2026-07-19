@@ -3,9 +3,9 @@ import 'package:flutter/material.dart';
 class TiendaView extends StatelessWidget {
   const TiendaView({Key? key}) : super(key: key);
 
-  // Colores principales basados en la configuración proporcionada
-  static const Color colorBugambilia = Color(0xFF8C0049);
-  static const Color colorFondoMarfil = Color(0xFFF1FBFF);
+  // Colores principales actualizados
+  static const Color colorBugambilia = Color(0xFFD81B60);
+  static const Color colorFondoMarfil = Color(0xFFF8F5F2);
   static const Color colorSuperficie = Colors.white;
   static const Color colorTextoSecundario = Color(0xFF5E6668);
 
@@ -56,7 +56,8 @@ class TiendaView extends StatelessWidget {
             ),
             image: DecorationImage(
               image: NetworkImage(
-                  'https://lh3.googleusercontent.com/aida-public/AB6AXuCF-ZV1OGnwaWHgCpVFsG-CRgOxgMrLfBZaCT0RqM9QZBPqOJmtRL-TS_t-goGw7_X47PEcIi1CW99JpaZlUPlJXyv51krv-WkwNQIbQ_eWW3KF1IbwR8ozmPm60LjEmd-laIKKCeMTURJdgX-z6Q_sf7J4V0l97ykA-ZMZ07kNTfv7lNEFA4xH56ub7p5kXRVLBhfPuT82UTFrjZCFcH8dNz6RfTxnSDPqml_npTuvAftZMvZI5X1OJg'),
+                'https://lh3.googleusercontent.com/aida-public/AB6AXuCF-ZV1OGnwaWHgCpVFsG-CRgOxgMrLfBZaCT0RqM9QZBPqOJmtRL-TS_t-goGw7_X47PEcIi1CW99JpaZlUPlJXyv51krv-WkwNQIbQ_eWW3KF1IbwR8ozmPm60LjEmd-laIKKCeMTURJdgX-z6Q_sf7J4V0l97ykA-ZMZ07kNTfv7lNEFA4xH56ub7p5kXRVLBhfPuT82UTFrjZCFcH8dNz6RfTxnSDPqml_npTuvAftZMvZI5X1OJg',
+              ),
               fit: BoxFit.cover,
             ),
           ),
@@ -147,7 +148,9 @@ class TiendaView extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: const Color(0xFFE5F0F5),
+        color: const Color(
+          0xFFF0EAE6,
+        ), // Tono cálido en lugar del azulado anterior
         borderRadius: BorderRadius.circular(16),
       ),
       child: Row(
@@ -156,10 +159,7 @@ class TiendaView extends StatelessWidget {
           Container(
             width: 6,
             height: 6,
-            decoration: BoxDecoration(
-              color: dotColor,
-              shape: BoxShape.circle,
-            ),
+            decoration: BoxDecoration(color: dotColor, shape: BoxShape.circle),
           ),
           const SizedBox(width: 6),
           Text(
@@ -178,14 +178,33 @@ class TiendaView extends StatelessWidget {
   Widget _buildMetricas() {
     return Row(
       children: [
-        Expanded(child: _buildTarjetaMetrica(Icons.shopping_bag_outlined, '142', 'PRODUCTOS', colorBugambilia)),
+        Expanded(
+          child: _buildTarjetaMetrica(
+            Icons.shopping_bag_outlined,
+            '142',
+            'PRODUCTOS',
+            colorBugambilia,
+          ),
+        ),
         const SizedBox(width: 16),
-        Expanded(child: _buildTarjetaMetrica(Icons.trending_up, '98%', 'CUMPLIMIENTO', const Color(0xFF10b981))),
+        Expanded(
+          child: _buildTarjetaMetrica(
+            Icons.trending_up,
+            '98%',
+            'CUMPLIMIENTO',
+            const Color(0xFF10b981),
+          ),
+        ),
       ],
     );
   }
 
-  Widget _buildTarjetaMetrica(IconData icon, String value, String label, Color iconColor) {
+  Widget _buildTarjetaMetrica(
+    IconData icon,
+    String value,
+    String label,
+    Color iconColor,
+  ) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -245,10 +264,7 @@ class TiendaView extends StatelessWidget {
             SizedBox(height: 4),
             Text(
               'Lo que tus clientes ven actualmente',
-              style: TextStyle(
-                fontSize: 12,
-                color: colorTextoSecundario,
-              ),
+              style: TextStyle(fontSize: 12, color: colorTextoSecundario),
             ),
           ],
         ),
@@ -274,21 +290,24 @@ class TiendaView extends StatelessWidget {
     return Column(
       children: [
         _buildTarjetaProducto(
-          imagenUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuD0ynwfKC9_TzONO23LLRj1Jav9uAfACxsaQdexFYeGoRLlUs45qmvI9a2F6X1IilQ9EVT0mf_jQT2guDbfbKHz6WchE4gNP9mwGVWwduuK6t_8SZSz1e4dpwjt-XghbgSS-Q8Vo7EVCh4zLmKfQ-ezAHHIwl9KgQUyR4s4BFwazDFP8Q1IyIAt_MhrjdY5RWzciNBxD6aEAyzs2ecYeNcmIEjXT7q-VzXWTzEG3K3ypyUv0zsj71naPA',
+          imagenUrl:
+              'https://lh3.googleusercontent.com/aida-public/AB6AXuD0ynwfKC9_TzONO23LLRj1Jav9uAfACxsaQdexFYeGoRLlUs45qmvI9a2F6X1IilQ9EVT0mf_jQT2guDbfbKHz6WchE4gNP9mwGVWwduuK6t_8SZSz1e4dpwjt-XghbgSS-Q8Vo7EVCh4zLmKfQ-ezAHHIwl9KgQUyR4s4BFwazDFP8Q1IyIAt_MhrjdY5RWzciNBxD6aEAyzs2ecYeNcmIEjXT7q-VzXWTzEG3K3ypyUv0zsj71naPA',
           categoria: 'SEDA SILVESTRE',
           titulo: 'Huipil Gala Indigo',
           precio: '\$4,200 MXN',
         ),
         const SizedBox(height: 16),
         _buildTarjetaProducto(
-          imagenUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuB1yOwp-JGgjSnF4ElFbzSspoqg2vpmjJGO3Ev8dfviSscR8ziRnXd6wLnaJ5xejukemKgS7_f-SzwE0tttJKm7vb-P4kWzdqg4jjSQtL6q0H6Dl8PzhR2JTrJg-CO3VBk3M45bND9HyimuTCjCpISB3tbSr3MV8Tp7mvWkO4u1WkAuneBvkiPE_k3Tr7K7CTpP0XGMXKpqAmC-Y8cOgU3vUsL7xMlM7HKrrBTIq_byRKcQ-CK9_gxpsg',
+          imagenUrl:
+              'https://lh3.googleusercontent.com/aida-public/AB6AXuB1yOwp-JGgjSnF4ElFbzSspoqg2vpmjJGO3Ev8dfviSscR8ziRnXd6wLnaJ5xejukemKgS7_f-SzwE0tttJKm7vb-P4kWzdqg4jjSQtL6q0H6Dl8PzhR2JTrJg-CO3VBk3M45bND9HyimuTCjCpISB3tbSr3MV8Tp7mvWkO4u1WkAuneBvkiPE_k3Tr7K7CTpP0XGMXKpqAmC-Y8cOgU3vUsL7xMlM7HKrrBTIq_byRKcQ-CK9_gxpsg',
           categoria: 'CUERO GENUINO',
           titulo: 'Bolso Herencia Mística',
           precio: '\$2,850 MXN',
         ),
         const SizedBox(height: 16),
         _buildTarjetaProducto(
-          imagenUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuDM6G2DEShb7gZNffF6q9YzSGQ4Tvj-6JlBYC8HLOcBvV4_iW9shVCUIkEIRyQEYIBwB1oDI9XlKCiISr5ZBIG4SAv-PInhQYXn8yytoBnHAYi3ZfAEV0fGYtllWisQszmWpxwx6yRaLWENXus95lPpqGLfxQxMexQqN631JVG0YYtgbfGV_7kUB8FpN6Ln17wvf_Oyn3bglSwO7MOxqicP3QVmXazGxJ7tx1yPJ81H7XNt1WrLQ-mtJw',
+          imagenUrl:
+              'https://lh3.googleusercontent.com/aida-public/AB6AXuDM6G2DEShb7gZNffF6q9YzSGQ4Tvj-6JlBYC8HLOcBvV4_iW9shVCUIkEIRyQEYIBwB1oDI9XlKCiISr5ZBIG4SAv-PInhQYXn8yytoBnHAYi3ZfAEV0fGYtllWisQszmWpxwx6yRaLWENXus95lPpqGLfxQxMexQqN631JVG0YYtgbfGV_7kUB8FpN6Ln17wvf_Oyn3bglSwO7MOxqicP3QVmXazGxJ7tx1yPJ81H7XNt1WrLQ-mtJw',
           categoria: 'ACCESORIOS',
           titulo: 'Aretes Sol de Oro',
           precio: '\$1,200 MXN',

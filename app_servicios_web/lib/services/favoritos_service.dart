@@ -22,6 +22,10 @@ class FavoritosService extends ChangeNotifier {
 
   bool esFavorito(int articuloId) => _favoritos.contains(articuloId);
 
+  /// Copia inmutable de los ids favoritos actuales, para que
+  /// `FavoritesView` pueda pedirle sus artículos a `ArticuloService`.
+  Set<int> get ids => Set.unmodifiable(_favoritos);
+
   void toggle(int articuloId) {
     if (_favoritos.contains(articuloId)) {
       _favoritos.remove(articuloId);

@@ -1,15 +1,21 @@
 import 'package:flutter/material.dart';
-// 1. Importamos tus menús y botones globales
+
+// 1. IMPORTAMOS TUS MENÚS Y BOTONES GLOBALES
 import '../../widgets/global_top_bar.dart';
 import '../../widgets/global_bottom_bar.dart';
 import '../../widgets/global_side_menu.dart';
 import '../../widgets/global_chatbot_button.dart';
 
-// 2. IMPORTAMOS TUS VISTAS PRINCIPALES
+// 2. IMPORTAMOS TUS VISTAS PRINCIPALES Y DEL MENÚ LATERAL
 import 'views/home_view.dart';
 import 'views/collections_view.dart';
 import 'views/favorites_view.dart';
 import 'views/cart_view.dart';
+import 'views/mis_compras_view.dart';
+import 'views/notificaciones_view.dart';
+import 'views/mis_opiniones_view.dart';
+import 'views/formas_de_pago_view.dart';
+import 'views/menu_config_view.dart'; // <-- Agregamos la vista de configuración
 
 class UserLayout extends StatefulWidget {
   const UserLayout({super.key});
@@ -20,14 +26,9 @@ class UserLayout extends StatefulWidget {
 
 class _UserLayoutState extends State<UserLayout> {
   bool _isDrawerOpen = false;
-  int _bottomNavIndex = 0; // 0: Inicio, 1: Colecciones, 2: Favoritos, 3: Carrito (solo FAB)
 
-  final List<Widget> _views = [
-    const HomeView(),
-    const CollectionsView(),
-    const FavoritesView(),
-    const CartView(),
-  ];
+  // Usamos un String para saber exactamente qué página mostrar
+  String _activePage = 'home';
 
   void _toggleDrawer() {
     setState(() {
@@ -37,9 +38,74 @@ class _UserLayoutState extends State<UserLayout> {
 
   void _goToCart() {
     setState(() {
-      _bottomNavIndex = 3; // cambia a la vista carrito
+      _activePage = 'cart';
       if (_isDrawerOpen) _isDrawerOpen = false;
     });
+  }
+
+  void _irAColecciones() {
+    setState(() => _activePage = 'colecciones');
+  }
+
+  // Traduce el string de la página activa al índice del BottomBar
+  int get _bottomNavIndex {
+    if (_activePage == 'home') return 0;
+    if (_activePage == 'colecciones') return 1;
+    if (_activePage == 'favoritos') return 2;
+    if (_activePage == 'cart') return 3;
+    // Si estamos en una vista del menú, dejamos encendido el ícono de Inicio
+    return 0;
+  }
+
+  // Cambia el título de la barra superior dependiendo de dónde estemos
+  String get _topBarTitle {
+    switch (_activePage) {
+      case 'cart':
+        return 'Carrito de Compras';
+      case 'mis_compras':
+        return 'Mis Compras';
+      case 'notificaciones':
+        return 'Notificaciones';
+      case 'mis_opiniones':
+        return 'Mis Opiniones';
+      case 'forma_pago':
+        return 'Formas de Pago';
+      case 'configuracion':
+        return 'Configuración'; // <-- Título dinámico agregado
+      case 'favoritos':
+        return 'Tus Favoritos';
+      default:
+        return 'Ixé Moda';
+    }
+  }
+
+  // Decide qué widget pintar en el centro
+  Widget _getContentView() {
+    switch (_activePage) {
+      case 'home':
+        return HomeView(onIrAColecciones: _irAColecciones);
+      case 'colecciones':
+        return const CollectionsView();
+      case 'favoritos':
+        return const FavoritesView();
+      case 'cart':
+        return const CartView();
+
+      // Vistas del menú lateral
+      case 'mis_compras':
+        return const MisComprasView();
+      case 'notificaciones':
+        return NotificacionesView(); // Sin 'const' por tu configuración
+      case 'mis_opiniones':
+        return const MisOpinionesView();
+      case 'forma_pago':
+        return const FormasDePagoView();
+      case 'configuracion':
+        return const MenuConfigView(); // <-- Vista de configuración integrada
+
+      default:
+        return HomeView(onIrAColecciones: _irAColecciones);
+    }
   }
 
   @override
@@ -51,7 +117,19 @@ class _UserLayoutState extends State<UserLayout> {
       body: Stack(
         children: [
           // MENÚ LATERAL
-          GlobalSideMenu(onClose: _toggleDrawer),
+          GlobalSideMenu(
+            onClose: _toggleDrawer,
+            isSeller: false,
+            currentRoute: _activePage,
+            onNavigate: (route) {
+              _toggleDrawer(); // Cierra la animación 3D primero
+
+              Future.delayed(const Duration(milliseconds: 300), () {
+                // AHORA TODAS LAS RUTAS SE CARGAN ADENTRO DEL LAYOUT
+                setState(() => _activePage = route);
+              });
+            },
+          ),
 
           // MARCO CON EFECTO 3D
           AnimatedContainer(
@@ -84,16 +162,18 @@ class _UserLayoutState extends State<UserLayout> {
               child: Scaffold(
                 backgroundColor: Colors.transparent,
                 appBar: GlobalTopBar(
-                  title: _bottomNavIndex == 3
-                      ? 'Carrito de Compras'
-                      : 'Ixé Moda',
-                  showSearch: _bottomNavIndex != 3, // sin búsqueda en carrito
+                  title: _topBarTitle,
+                  showSearch:
+                      _activePage == 'home' || _activePage == 'colecciones',
                 ),
                 body: Stack(
                   children: [
                     GestureDetector(
                       onTap: _isDrawerOpen ? _toggleDrawer : null,
-                      child: _views[_bottomNavIndex],
+                      child: AbsorbPointer(
+                        absorbing: _isDrawerOpen,
+                        child: _getContentView(),
+                      ),
                     ),
                     const GlobalChatbotButton(),
                   ],
@@ -115,9 +195,13 @@ class _UserLayoutState extends State<UserLayout> {
                 bottomNavigationBar: GlobalBottomBar(
                   currentIndex: _bottomNavIndex,
                   isDrawerOpen: _isDrawerOpen,
-                  isSeller: false, // modo cliente
+                  isSeller: false,
                   onTabSelected: (index) {
-                    setState(() => _bottomNavIndex = index);
+                    setState(() {
+                      if (index == 0) _activePage = 'home';
+                      if (index == 1) _activePage = 'colecciones';
+                      if (index == 2) _activePage = 'favoritos';
+                    });
                   },
                   onMenuPressed: _toggleDrawer,
                 ),

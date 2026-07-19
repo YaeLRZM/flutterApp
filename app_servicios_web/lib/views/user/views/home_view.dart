@@ -15,8 +15,15 @@ import '../../../widgets/product_card_small.dart';
 import '../../../widgets/promo_discount_banner.dart';
 import 'product_detail_view.dart';
 
+/// Muestra el feed principal. Recibe [onIrAColecciones] para avisarle a
+/// `UserLayout` que debe cambiar a la pestaña de Colecciones del bottom
+/// bar — esta vista NO navega por su cuenta con `Navigator.push`, porque
+/// eso abriría una pantalla nueva encima (sin el bottom bar ni el menú),
+/// en vez de simplemente cambiar de pestaña como el resto de la app.
 class HomeView extends StatefulWidget {
-  const HomeView({super.key});
+  final VoidCallback onIrAColecciones;
+
+  const HomeView({super.key, required this.onIrAColecciones});
 
   @override
   State<HomeView> createState() => _HomeViewState();
@@ -109,12 +116,7 @@ class _HomeViewState extends State<HomeView> {
   }
 
   void _irACategorias() {
-    // TODO: NAV -> Navigator.push(context, MaterialPageRoute(
-    //   builder: (_) => const CategoriasView(),
-    // ));
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Aquí abriremos la vista de Categorías')),
-    );
+    widget.onIrAColecciones();
   }
 
   @override

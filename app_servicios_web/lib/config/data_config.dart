@@ -17,6 +17,10 @@ const bool kUseMockData = true;
 /// cortar y ofrecer el botón "Ver categorías".
 const int kMaxArticulosHome = 25;
 
+/// Máximo de artículos que se muestran al entrar al detalle de una
+/// categoría (CategoryDetailView).
+const int kMaxArticulosCategoria = 50;
+
 /// Máximo de categorías visibles en el menú horizontal antes de mostrar
 /// el chip "Ver más".
 const int kMaxCategoriasMenu = 10;

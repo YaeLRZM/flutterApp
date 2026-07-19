@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'splash_screen.dart';
+import 'views/auth/login_screen.dart';
 
 void main() {
   runApp(const IxeModaApp());
@@ -18,6 +19,8 @@ class IxeModaApp extends StatelessWidget {
         useMaterial3: true,
       ),
       home: const SplashScreen(), // Iniciamos en la pantalla de bienvenida
+
+      routes: {'/login': (context) => const LoginScreen()},
     );
   }
 }
