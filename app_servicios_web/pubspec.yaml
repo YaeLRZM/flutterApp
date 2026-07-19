@@ -76,6 +76,7 @@ flutter:
     - assets/images/fondoRosa.png
     - assets/images/ixemoda1024.png
     - assets/images/splash_static.png
+    - assets/images/icon2.png
     - assets/images/splash.gif
     - assets/images/splash2.gif
 
@@ -107,9 +108,9 @@ flutter:
 flutter_launcher_icons:
   android: true
   ios: true
-  image_path: "assets/images/ixemoda1024.png" # ruta de tu imagen (mínimo 1024x1024 px)
+  image_path: "assets/images/icon2.png" # ruta de tu imagen (mínimo 1024x1024 px)
   adaptive_icon_background: "#FFFFFF" # color de fondo para Android Adaptive Icon (opcional)
-  adaptive_icon_foreground: "assets/images/ixemoda1024.png" # opcional, si usas foreground
+  adaptive_icon_foreground: "assets/images/icon2.png" # opcional, si usas foreground
   remove_alpha_ios: true # elimina transparencia en iOS
 
 flutter_native_splash:
