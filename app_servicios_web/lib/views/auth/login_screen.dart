@@ -6,6 +6,7 @@ import '../../services/api_service.dart';
 import '../user/user_layout.dart';
 import '../vendedor/vendedor_layout.dart';
 import 'vendedor_identidad_screen.dart'; // ← Importa tu pantalla de registro vendedor
+import 'register_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -29,9 +30,9 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   void _goToRegister() {
-    // Navigator.push(context, MaterialPageRoute(builder: (_) => const RegisterScreen()));
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Navegando a registro...')),
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const RegisterScreen()),
     );
   }
 
@@ -54,7 +55,10 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => _isLoading = false);
 
     if (response['success'] == true) {
-      final String userRole = (response['role'] ?? '').toString().toLowerCase().trim();
+      final String userRole = (response['role'] ?? '')
+          .toString()
+          .toLowerCase()
+          .trim();
 
       if (userRole == 'admin') {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -67,15 +71,18 @@ class _LoginScreenState extends State<LoginScreen> {
         return;
       }
 
-      final bool isSellerActual = userRole == 'vendedor' || userRole.contains('seller');
+      final bool isSellerActual =
+          userRole == 'vendedor' || userRole.contains('seller');
       final bool isSellerExpected = _isSeller;
 
       if (isSellerActual != isSellerExpected) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(isSellerExpected
-                ? 'Esta cuenta no es de vendedor.'
-                : 'Esta cuenta es de vendedor. Selecciona "Vendedor".'),
+            content: Text(
+              isSellerExpected
+                  ? 'Esta cuenta no es de vendedor.'
+                  : 'Esta cuenta es de vendedor. Selecciona "Vendedor".',
+            ),
             backgroundColor: Colors.orange,
           ),
         );
@@ -83,9 +90,15 @@ class _LoginScreenState extends State<LoginScreen> {
       }
 
       if (isSellerActual) {
-        Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const VendedorLayout()));
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const VendedorLayout()),
+        );
       } else {
-        Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const UserLayout()));
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const UserLayout()),
+        );
       }
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -132,7 +145,10 @@ class _LoginScreenState extends State<LoginScreen> {
                   borderRadius: BorderRadius.circular(40),
                   border: Border.all(color: Colors.white.withOpacity(0.5)),
                   boxShadow: [
-                    BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 20),
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.1),
+                      blurRadius: 20,
+                    ),
                   ],
                 ),
                 child: Column(
@@ -163,7 +179,9 @@ class _LoginScreenState extends State<LoginScreen> {
                               child: AnimatedContainer(
                                 duration: const Duration(milliseconds: 300),
                                 decoration: BoxDecoration(
-                                  color: !_isSeller ? const Color(0xFFD81B60) : Colors.transparent,
+                                  color: !_isSeller
+                                      ? const Color(0xFFD81B60)
+                                      : Colors.transparent,
                                   borderRadius: BorderRadius.circular(30),
                                 ),
                                 alignment: Alignment.center,
@@ -171,7 +189,9 @@ class _LoginScreenState extends State<LoginScreen> {
                                   'Usuario',
                                   style: GoogleFonts.poppins(
                                     fontWeight: FontWeight.w500,
-                                    color: !_isSeller ? Colors.white : Colors.black54,
+                                    color: !_isSeller
+                                        ? Colors.white
+                                        : Colors.black54,
                                   ),
                                 ),
                               ),
@@ -183,7 +203,9 @@ class _LoginScreenState extends State<LoginScreen> {
                               child: AnimatedContainer(
                                 duration: const Duration(milliseconds: 300),
                                 decoration: BoxDecoration(
-                                  color: _isSeller ? const Color(0xFFD81B60) : Colors.transparent,
+                                  color: _isSeller
+                                      ? const Color(0xFFD81B60)
+                                      : Colors.transparent,
                                   borderRadius: BorderRadius.circular(30),
                                 ),
                                 alignment: Alignment.center,
@@ -191,7 +213,9 @@ class _LoginScreenState extends State<LoginScreen> {
                                   'Vendedor',
                                   style: GoogleFonts.poppins(
                                     fontWeight: FontWeight.w500,
-                                    color: _isSeller ? Colors.white : Colors.black54,
+                                    color: _isSeller
+                                        ? Colors.white
+                                        : Colors.black54,
                                   ),
                                 ),
                               ),
@@ -212,15 +236,23 @@ class _LoginScreenState extends State<LoginScreen> {
                         hintText: 'Correo electrónico',
                         filled: true,
                         fillColor: Colors.white.withOpacity(0.6),
-                        suffixIcon: const Icon(Icons.mail_outline, color: Colors.black54),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                        suffixIcon: const Icon(
+                          Icons.mail_outline,
+                          color: Colors.black54,
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 20,
+                          vertical: 16,
+                        ),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(30),
                           borderSide: BorderSide.none,
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(30),
-                          borderSide: const BorderSide(color: Color(0xFFD81B60)),
+                          borderSide: const BorderSide(
+                            color: Color(0xFFD81B60),
+                          ),
                         ),
                       ),
                     ),
@@ -237,19 +269,28 @@ class _LoginScreenState extends State<LoginScreen> {
                         fillColor: Colors.white.withOpacity(0.6),
                         suffixIcon: IconButton(
                           icon: Icon(
-                            _obscurePassword ? Icons.lock_outline : Icons.lock_open,
+                            _obscurePassword
+                                ? Icons.lock_outline
+                                : Icons.lock_open,
                             color: Colors.black54,
                           ),
-                          onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                          onPressed: () => setState(
+                            () => _obscurePassword = !_obscurePassword,
+                          ),
                         ),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 20,
+                          vertical: 16,
+                        ),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(30),
                           borderSide: BorderSide.none,
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(30),
-                          borderSide: const BorderSide(color: Color(0xFFD81B60)),
+                          borderSide: const BorderSide(
+                            color: Color(0xFFD81B60),
+                          ),
                         ),
                       ),
                     ),
@@ -263,13 +304,19 @@ class _LoginScreenState extends State<LoginScreen> {
                           children: [
                             Checkbox(
                               value: _rememberMe,
-                              onChanged: (val) => setState(() => _rememberMe = val!),
+                              onChanged: (val) =>
+                                  setState(() => _rememberMe = val!),
                               activeColor: const Color(0xFFD81B60),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(4),
+                              ),
                             ),
                             Text(
                               'Recuérdame',
-                              style: GoogleFonts.dmSans(fontSize: 13, color: Colors.black87),
+                              style: GoogleFonts.dmSans(
+                                fontSize: 13,
+                                color: Colors.black87,
+                              ),
                             ),
                           ],
                         ),
@@ -277,7 +324,10 @@ class _LoginScreenState extends State<LoginScreen> {
                           onTap: () {},
                           child: Text(
                             'Olvidé mi contraseña',
-                            style: GoogleFonts.dmSans(fontSize: 13, color: Colors.black87),
+                            style: GoogleFonts.dmSans(
+                              fontSize: 13,
+                              color: Colors.black87,
+                            ),
                           ),
                         ),
                       ],
@@ -292,7 +342,9 @@ class _LoginScreenState extends State<LoginScreen> {
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFFD81B60),
                           padding: const EdgeInsets.symmetric(vertical: 16),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(30),
+                          ),
                           elevation: 5,
                           shadowColor: const Color(0xFFD81B60).withOpacity(0.5),
                         ),
@@ -300,11 +352,18 @@ class _LoginScreenState extends State<LoginScreen> {
                             ? const SizedBox(
                                 height: 20,
                                 width: 20,
-                                child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                                child: CircularProgressIndicator(
+                                  color: Colors.white,
+                                  strokeWidth: 2,
+                                ),
                               )
                             : Text(
                                 'Ingresar',
-                                style: GoogleFonts.poppins(fontSize: 16, color: Colors.white, fontWeight: FontWeight.w600),
+                                style: GoogleFonts.poppins(
+                                  fontSize: 16,
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w600,
+                                ),
                               ),
                       ),
                     ),
@@ -340,7 +399,11 @@ class _LoginScreenState extends State<LoginScreen> {
                               const SizedBox(width: 12),
                               Text(
                                 'Continuar con Google',
-                                style: GoogleFonts.poppins(fontSize: 15, fontWeight: FontWeight.w500, color: Colors.black87),
+                                style: GoogleFonts.poppins(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w500,
+                                  color: Colors.black87,
+                                ),
                               ),
                             ],
                           ),
@@ -352,12 +415,22 @@ class _LoginScreenState extends State<LoginScreen> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Text('¿Aún no tienes cuenta? ', style: GoogleFonts.dmSans(fontSize: 14, color: Colors.black87)),
+                          Text(
+                            '¿Aún no tienes cuenta? ',
+                            style: GoogleFonts.dmSans(
+                              fontSize: 14,
+                              color: Colors.black87,
+                            ),
+                          ),
                           GestureDetector(
                             onTap: _goToRegister,
                             child: Text(
                               'Registrarse',
-                              style: GoogleFonts.dmSans(fontSize: 14, color: const Color(0xFFD81B60), fontWeight: FontWeight.w600),
+                              style: GoogleFonts.dmSans(
+                                fontSize: 14,
+                                color: const Color(0xFFD81B60),
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
                           ),
                         ],
@@ -370,7 +443,10 @@ class _LoginScreenState extends State<LoginScreen> {
                           children: [
                             Text(
                               'Aún no eres un vendedor?',
-                              style: GoogleFonts.dmSans(fontSize: 13.5, color: Colors.black87),
+                              style: GoogleFonts.dmSans(
+                                fontSize: 13.5,
+                                color: Colors.black87,
+                              ),
                               textAlign: TextAlign.center,
                             ),
                             const SizedBox(height: 4),

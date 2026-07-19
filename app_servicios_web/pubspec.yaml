@@ -56,6 +56,8 @@ dev_dependencies:
   flutter_lints: ^6.0.0
   build_runner: ^2.15.1
   json_serializable: ^6.14.0
+  flutter_launcher_icons: ^0.13.1
+  flutter_native_splash: ^2.3.8
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
@@ -71,6 +73,10 @@ flutter:
   assets:
     - assets/images/fondoWel.png
     - assets/images/fondoRosa.png
+    - assets/images/ixemoda1024.png
+    - assets/images/splash_static.png
+    - assets/images/splash.gif
+    - assets/images/splash2.gif
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
@@ -97,3 +103,17 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/images/ixemoda1024.png" # ruta de tu imagen (mínimo 1024x1024 px)
+  adaptive_icon_background: "#FFFFFF" # color de fondo para Android Adaptive Icon (opcional)
+  adaptive_icon_foreground: "assets/images/ixemoda1024.png" # opcional, si usas foreground
+  remove_alpha_ios: true # elimina transparencia en iOS
+
+flutter_native_splash:
+  color: "#FFFFFF" # Color de fondo
+  image: "assets/images/splash_static.png" # Imagen estática (puede ser el primer frame de tu GIF)
+  android: true
+  ios: true
+  # Opcional: android_gravity, ios_content_mode, etc.

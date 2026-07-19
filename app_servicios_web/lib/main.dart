@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'views/welcome_screen.dart';
+import 'splash_screen.dart';
 
 void main() {
   runApp(const IxeModaApp());
@@ -17,7 +17,7 @@ class IxeModaApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFFD81B60)),
         useMaterial3: true,
       ),
-      home: const WelcomeScreen(), // Iniciamos en la pantalla de bienvenida
+      home: const SplashScreen(), // Iniciamos en la pantalla de bienvenida
     );
   }
 }
