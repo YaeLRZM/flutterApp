@@ -269,7 +269,199 @@ class _CompraExitosaViewState extends State<CompraExitosaView> {
                       ],
                     ),
                   ),
-                  const SizedBox(height: 60), // Espacio para el FAB
+                  const SizedBox(height: 16),
+
+                  // Método de Pago
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.03),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: const [
+                            Icon(
+                              Icons.credit_card,
+                              color: Color(0xFFD81B60),
+                              size: 18,
+                            ),
+                            SizedBox(width: 8),
+                            Text(
+                              'Método de Pago',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFFD81B60),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        const Text(
+                          'Tarjeta terminada en •••• 4492',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.black87,
+                            height: 1.4,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          children: const [
+                            Icon(
+                              Icons.circle,
+                              color: Color(0xFF00C853),
+                              size: 8,
+                            ),
+                            SizedBox(width: 6),
+                            Text(
+                              'Pago Confirmado',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: Color(0xFF00C853),
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Acción de Tiempo (Cancelar Compra)
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: const Color(0xFFD81B60).withOpacity(0.3),
+                        width: 1,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.03),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: const [
+                            Icon(
+                              Icons.timer_outlined,
+                              color: Color(0xFFD81B60),
+                              size: 20,
+                            ),
+                            SizedBox(width: 8),
+                            Text(
+                              'Acción de Tiempo',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFFD81B60),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        const Text(
+                          '¿Hubo algún error? No te preocupes.',
+                          style: TextStyle(fontSize: 13, color: Colors.black87),
+                        ),
+                        const SizedBox(height: 16),
+                        SizedBox(
+                          width: double.infinity,
+                          child: OutlinedButton(
+                            onPressed: () {},
+                            style: OutlinedButton.styleFrom(
+                              side: const BorderSide(
+                                color: Color(0xFFD81B60),
+                                width: 1.5,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(30),
+                              ),
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                            ),
+                            child: const Text(
+                              'Cancelar Compra',
+                              style: TextStyle(
+                                color: Color(0xFFD81B60),
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFE3F2FD).withOpacity(
+                              0.5,
+                            ), // Tono ligeramente azulado suave similar a la imagen
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Center(
+                            child: Text(
+                              '11:17 restantes para cancelar',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: Colors.black54,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+
+                  // Botón Ver Pedidos
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: () {},
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFFD81B60),
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(30),
+                        ),
+                        elevation: 0,
+                      ),
+                      child: const Text(
+                        'Ver pedidos',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(
+                    height: 80,
+                  ), // Espacio extra para que el FAB no estorbe
                 ],
               ),
             ),
@@ -284,11 +476,11 @@ class _CompraExitosaViewState extends State<CompraExitosaView> {
             colors: const [
               Color(0xFFD81B60), // Rosa bugambilia
               Color(0xFFF48FB1), // Rosa claro
-              Color(0xFFFFC107), // Acento amarillo (opcional para dar vida)
+              Color(0xFFFFC107), // Acento amarillo
               Colors.white,
             ],
             createParticlePath:
-                drawStar, // Puedes quitar esto si prefieres el confeti rectangular por defecto
+                drawStar, // Puedes quitar esto si prefieres el confeti rectangular
           ),
         ],
       ),
@@ -346,7 +538,7 @@ class _CompraExitosaViewState extends State<CompraExitosaView> {
     );
   }
 
-  // Opcional: Para hacer que los confetis tengan forma de estrella (similar a la imagen)
+  // Opcional: Para hacer que los confetis tengan forma de estrella
   Path drawStar(Size size) {
     double degToRad(double deg) => deg * (3.1415926535897932 / 180.0);
     const numberOfPoints = 5;

@@ -6,6 +6,7 @@ import '../../../models/resena_resumen.dart';
 import '../../../services/articulo_imagen_service.dart';
 import '../../../services/articulo_service.dart';
 import '../../../services/artesano_service.dart';
+import '../../../services/carrito_service.dart';
 import '../../../services/favoritos_service.dart';
 import '../../../services/resena_service.dart';
 import '../../../widgets/product_grid_item.dart';
@@ -136,9 +137,11 @@ class _ProductDetailViewState extends State<ProductDetailView> {
   }
 
   void _agregarAlCarrito() {
-    // TODO: API -> POST /api/carrito con { articulo_id, cantidad: 1 }
+    final articulo = _articulo;
+    if (articulo == null) return;
+    CarritoService.instance.agregar(articulo.id);
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('"${_articulo?.nombre}" agregado al carrito')),
+      SnackBar(content: Text('"${articulo.nombre}" agregado al carrito')),
     );
   }
 

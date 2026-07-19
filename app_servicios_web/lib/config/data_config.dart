@@ -21,6 +21,12 @@ const int kMaxArticulosHome = 25;
 /// categoría (CategoryDetailView).
 const int kMaxArticulosCategoria = 50;
 
+/// Reglas de envío del carrito.
+/// TODO: API -> esto debería venir de una tabla de configuración /
+/// políticas de envío, no como constantes en la app.
+const double kCostoEnvioNacional = 150.0;
+const double kEnvioGratisDesde = 3000.0;
+
 /// Máximo de categorías visibles en el menú horizontal antes de mostrar
 /// el chip "Ver más".
 const int kMaxCategoriasMenu = 10;

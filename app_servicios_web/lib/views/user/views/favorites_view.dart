@@ -4,6 +4,7 @@ import '../../../models/artesano.dart';
 import '../../../models/articulo.dart';
 import '../../../services/articulo_service.dart';
 import '../../../services/artesano_service.dart';
+import '../../../services/carrito_service.dart';
 import '../../../services/favoritos_service.dart';
 import 'product_detail_view.dart';
 
@@ -85,7 +86,9 @@ class _FavoritesViewState extends State<FavoritesView> {
   }
 
   void _agregarTodoAlCarrito() {
-    // TODO: API -> POST /api/carrito/multiple con los ids de `_articulos`.
+    for (final articulo in _articulos) {
+      CarritoService.instance.agregar(articulo.id);
+    }
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text('${_articulos.length} artículo(s) agregados al carrito'),

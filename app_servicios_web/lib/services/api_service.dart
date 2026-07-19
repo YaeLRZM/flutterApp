@@ -7,7 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 class ApiService {
   // Cambia esto dependiendo de si usas emulador o teléfono físico
   static const bool useAndroidEmulator =
-      false; // true si usas el emulador de Android Studio
+      true; // true si usas el emulador de Android Studio
 
   static String get baseUrl {
     if (kIsWeb) {

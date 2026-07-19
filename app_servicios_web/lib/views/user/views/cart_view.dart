@@ -1,57 +1,224 @@
 import 'package:flutter/material.dart';
 
-class CartView extends StatelessWidget {
-  const CartView({super.key});
+import '../../../config/data_config.dart';
+import '../../../models/articulo.dart';
+import '../../../services/articulo_service.dart';
+import '../../../services/carrito_service.dart';
+import 'product_detail_view.dart';
+
+/// Vista de Carrito. Las cantidades viven en `CarritoService`
+/// (compartido con `ProductDetailView` y `FavoritesView`); esta vista
+/// solo pide, con esos ids, los artículos completos y calcula el
+/// resumen de compra en tiempo real.
+///
+/// [onIrAInicio] se usa para el botón "Elegir más productos": cambia a
+/// la pestaña de Inicio del bottom bar (igual que `onIrAColecciones` en
+/// HomeView), en vez de abrir una pantalla nueva.
+class CartView extends StatefulWidget {
+  final VoidCallback onIrAInicio;
+
+  const CartView({super.key, required this.onIrAInicio});
+
+  @override
+  State<CartView> createState() => _CartViewState();
+}
+
+class _CartViewState extends State<CartView> {
+  final _articuloService = ArticuloService();
+
+  bool _loading = true;
+  String? _error;
+  List<Articulo> _articulos = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _cargarDatos();
+    CarritoService.instance.addListener(_onCarritoChanged);
+  }
+
+  @override
+  void dispose() {
+    CarritoService.instance.removeListener(_onCarritoChanged);
+    super.dispose();
+  }
+
+  void _onCarritoChanged() {
+    _cargarDatos();
+  }
+
+  Future<void> _cargarDatos() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+
+    try {
+      final ids = CarritoService.instance.cantidades.keys;
+      final articulos = await _articuloService.fetchArticulosPorIds(ids);
+
+      if (!mounted) return;
+      setState(() {
+        _articulos = articulos;
+        _loading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = 'No se pudo cargar el carrito: $e';
+        _loading = false;
+      });
+    }
+  }
+
+  void _abrirArticulo(int articuloId) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ProductDetailView(articuloId: articuloId),
+      ),
+    );
+  }
+
+  void _continuarCompra() {
+    // TODO: API -> iniciar checkout: POST /api/pedidos con el contenido
+    // actual de CarritoService.
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Aquí iniciará el flujo de pago')),
+    );
+  }
+
+  // --- Cálculos del resumen ---
+
+  double get _subtotalOriginal {
+    double total = 0;
+    for (final a in _articulos) {
+      final cantidad = CarritoService.instance.cantidadDe(a.id);
+      total += a.precio * cantidad;
+    }
+    return total;
+  }
+
+  double get _descuentoArtesanal {
+    double total = 0;
+    for (final a in _articulos) {
+      if (!a.tieneDescuento) continue;
+      final cantidad = CarritoService.instance.cantidadDe(a.id);
+      total += (a.precio - a.precioFinal) * cantidad;
+    }
+    return total;
+  }
+
+  double get _costoEnvio {
+    final subtotalConDescuento = _subtotalOriginal - _descuentoArtesanal;
+    if (_articulos.isEmpty) return 0;
+    return subtotalConDescuento >= kEnvioGratisDesde ? 0 : kCostoEnvioNacional;
+  }
+
+  double get _total => _subtotalOriginal - _descuentoArtesanal + _costoEnvio;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      color: const Color(0xFFF8F5F2), // Fondo principal
+    return Container(color: const Color(0xFFF8F5F2), child: _buildBody());
+  }
+
+  Widget _buildBody() {
+    if (_loading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_error != null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(_error!, textAlign: TextAlign.center),
+              const SizedBox(height: 12),
+              ElevatedButton(
+                onPressed: _cargarDatos,
+                child: const Text('Reintentar'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (_articulos.isEmpty) {
+      return _buildEmptyState();
+    }
+
+    return RefreshIndicator(
+      onRefresh: _cargarDatos,
       child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 24.0),
         children: [
-          // 1. Productos en el carrito
-          _buildCartItem(
-            title: 'Huipil Gala Bugambilia',
-            subtitle: 'SEDA ORGÁNICA • TALLA M',
-            price: '\$3,450 MXN',
-          ),
-          const SizedBox(height: 16),
-
-          _buildCartItem(
-            title: 'Bolso Tehuantepec Cuero',
-            subtitle: 'CUERO VACUNO • COGNAC',
-            price: '\$1,890 MXN',
-          ),
-          const SizedBox(height: 16),
-
-          _buildCartItem(
-            title: 'Pendientes Filigrana Plata',
-            subtitle: 'PLATA .925 • HECHO A MANO',
-            price: '\$1,200 MXN',
-          ),
-          const SizedBox(height: 24),
-
-          // 2. Resumen de Compra
+          for (final articulo in _articulos) ...[
+            _buildCartItem(articulo),
+            const SizedBox(height: 16),
+          ],
+          const SizedBox(height: 8),
           _buildOrderSummary(),
           const SizedBox(height: 16),
-
-          // 3. Badge de Compra Segura
           _buildSecurityBadge(),
-
-          // Espacio extra al final
           const SizedBox(height: 80),
         ],
       ),
     );
   }
 
-  // --- Tarjeta de Producto en Carrito ---
-  Widget _buildCartItem({
-    required String title,
-    required String subtitle,
-    required String price,
-  }) {
+  Widget _buildEmptyState() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.shopping_bag_outlined,
+              size: 48,
+              color: Colors.grey.shade400,
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              'Tu carrito está vacío.',
+              style: TextStyle(color: Colors.black54),
+            ),
+            const SizedBox(height: 16),
+            OutlinedButton(
+              onPressed: widget.onIrAInicio,
+              style: OutlinedButton.styleFrom(
+                side: const BorderSide(color: Color(0xFFD81B60)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(24),
+                ),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 12,
+                ),
+              ),
+              child: const Text(
+                'Ir a explorar',
+                style: TextStyle(
+                  color: Color(0xFFD81B60),
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // --- Tarjeta de producto en carrito ---
+  Widget _buildCartItem(Articulo articulo) {
+    final cantidad = CarritoService.instance.cantidadDe(articulo.id);
+    final subtotalItem = articulo.precioFinal * cantidad;
+
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -64,35 +231,36 @@ class CartView extends StatelessWidget {
           ),
         ],
       ),
+      clipBehavior: Clip.antiAlias,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Imagen del producto
-          Container(
-            height: 140,
-            width: double.infinity,
-            decoration: BoxDecoration(
-              color: Colors.grey[300], // Placeholder de imagen
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(16),
-              ),
-              // image: DecorationImage(image: AssetImage('assets/tu_imagen.jpg'), fit: BoxFit.cover),
+          GestureDetector(
+            onTap: () => _abrirArticulo(articulo.id),
+            child: Container(
+              height: 140,
+              width: double.infinity,
+              // TODO: API -> Image.network(articulo.imagenUrl)
+              color: Colors.grey[300],
             ),
           ),
-
-          // Detalles del producto
           Padding(
             padding: const EdgeInsets.all(16.0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  title,
-                  style: const TextStyle(fontSize: 14, color: Colors.black87),
+                GestureDetector(
+                  onTap: () => _abrirArticulo(articulo.id),
+                  child: Text(
+                    articulo.nombre,
+                    style: const TextStyle(fontSize: 14, color: Colors.black87),
+                  ),
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  subtitle,
+                  '${articulo.tela.toUpperCase()} • ${articulo.color.toUpperCase()}'
+                      .replaceAll('N/A • ', '')
+                      .replaceAll(' • N/A', ''),
                   style: const TextStyle(
                     fontSize: 10,
                     fontWeight: FontWeight.bold,
@@ -101,36 +269,39 @@ class CartView extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 16),
-
-                // Controles de cantidad y Precio
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    // Selector de cantidad
                     Row(
                       children: [
-                        _buildQuantityButton(Icons.remove),
-                        const Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 16.0),
+                        _buildQuantityButton(
+                          Icons.remove,
+                          onTap: () => CarritoService.instance
+                              .actualizarCantidad(articulo.id, cantidad - 1),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16.0),
                           child: Text(
-                            '1',
-                            style: TextStyle(
+                            '$cantidad',
+                            style: const TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
                         ),
-                        _buildQuantityButton(Icons.add),
+                        _buildQuantityButton(
+                          Icons.add,
+                          onTap: () => CarritoService.instance
+                              .actualizarCantidad(articulo.id, cantidad + 1),
+                        ),
                       ],
                     ),
-
-                    // Precio y Eliminar
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
                         Text(
-                          price,
+                          '\$${subtotalItem.toStringAsFixed(2)} MXN',
                           style: const TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w900,
@@ -139,7 +310,8 @@ class CartView extends StatelessWidget {
                         ),
                         const SizedBox(height: 8),
                         GestureDetector(
-                          onTap: () {},
+                          onTap: () =>
+                              CarritoService.instance.quitar(articulo.id),
                           child: Row(
                             children: [
                               Icon(
@@ -170,19 +342,21 @@ class CartView extends StatelessWidget {
     );
   }
 
-  // --- Botón circular de cantidad ---
-  Widget _buildQuantityButton(IconData icon) {
-    return Container(
-      padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        border: Border.all(color: const Color(0xFFD81B60).withOpacity(0.3)),
+  Widget _buildQuantityButton(IconData icon, {required VoidCallback onTap}) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(4),
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          border: Border.all(color: const Color(0xFFD81B60).withOpacity(0.3)),
+        ),
+        child: Icon(icon, size: 16, color: const Color(0xFFD81B60)),
       ),
-      child: Icon(icon, size: 16, color: const Color(0xFFD81B60)),
     );
   }
 
-  // --- Tarjeta de Resumen de Compra ---
+  // --- Resumen de compra ---
   Widget _buildOrderSummary() {
     return Container(
       padding: const EdgeInsets.all(20),
@@ -209,22 +383,27 @@ class CartView extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 16),
-
-          _buildSummaryRow('Subtotal (3 productos)', '\$6,540.00'),
-          const SizedBox(height: 12),
-          _buildSummaryRow('Envío (Nacional)', '\$150.00'),
+          _buildSummaryRow(
+            'Subtotal (${_articulos.length} producto${_articulos.length == 1 ? '' : 's'})',
+            '\$${_subtotalOriginal.toStringAsFixed(2)}',
+          ),
           const SizedBox(height: 12),
           _buildSummaryRow(
-            'Descuento Artesanal',
-            '-\$250.00',
-            isDiscount: true,
+            'Envío (Nacional)',
+            _costoEnvio == 0 ? 'Gratis' : '\$${_costoEnvio.toStringAsFixed(2)}',
           ),
-
+          if (_descuentoArtesanal > 0) ...[
+            const SizedBox(height: 12),
+            _buildSummaryRow(
+              'Descuento Artesanal',
+              '-\$${_descuentoArtesanal.toStringAsFixed(2)}',
+              isDiscount: true,
+            ),
+          ],
           const Padding(
             padding: EdgeInsets.symmetric(vertical: 16.0),
             child: Divider(color: Colors.black12, height: 1),
           ),
-
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -240,9 +419,9 @@ class CartView extends StatelessWidget {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  const Text(
-                    '\$6,440.00 MXN',
-                    style: TextStyle(
+                  Text(
+                    '\$${_total.toStringAsFixed(2)} MXN',
+                    style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w900,
                       color: Color(0xFFD81B60),
@@ -262,12 +441,10 @@ class CartView extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 24),
-
-          // Botón Continuar Compra
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
-              onPressed: () {},
+              onPressed: _continuarCompra,
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFFD81B60),
                 padding: const EdgeInsets.symmetric(vertical: 16),
@@ -294,12 +471,10 @@ class CartView extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 12),
-
-          // Botón Elegir más productos
           SizedBox(
             width: double.infinity,
             child: OutlinedButton(
-              onPressed: () {},
+              onPressed: widget.onIrAInicio,
               style: OutlinedButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 16),
                 side: const BorderSide(color: Color(0xFFD81B60), width: 1.5),
@@ -322,7 +497,6 @@ class CartView extends StatelessWidget {
     );
   }
 
-  // --- Fila individual del resumen ---
   Widget _buildSummaryRow(
     String label,
     String value, {
@@ -351,21 +525,20 @@ class CartView extends StatelessWidget {
     );
   }
 
-  // --- Badge de Compra Segura ---
   Widget _buildSecurityBadge() {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: const Color(0xFFEef4fb), // Fondo azul muy claro
+        color: const Color(0xFFEef4fb),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
-        children: [
-          const Icon(Icons.security, color: Color(0xFFD81B60), size: 20),
-          const SizedBox(width: 12),
+        children: const [
+          Icon(Icons.security, color: Color(0xFFD81B60), size: 20),
+          SizedBox(width: 12),
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
-            children: const [
+            children: [
               Text(
                 'Compra Segura',
                 style: TextStyle(

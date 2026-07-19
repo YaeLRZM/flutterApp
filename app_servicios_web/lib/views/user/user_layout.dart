@@ -47,6 +47,13 @@ class _UserLayoutState extends State<UserLayout> {
     setState(() => _activePage = 'colecciones');
   }
 
+  /// Se le pasa a `CartView` para el botón "Elegir más productos" (y el
+  /// estado vacío "Ir a explorar"): regresa a la pestaña de Inicio, igual
+  /// que `_irAColecciones` hace con Colecciones desde el Home.
+  void _irAInicio() {
+    setState(() => _activePage = 'home');
+  }
+
   // Traduce el string de la página activa al índice del BottomBar
   int get _bottomNavIndex {
     if (_activePage == 'home') return 0;
@@ -89,7 +96,7 @@ class _UserLayoutState extends State<UserLayout> {
       case 'favoritos':
         return const FavoritesView();
       case 'cart':
-        return const CartView();
+        return CartView(onIrAInicio: _irAInicio);
 
       // Vistas del menú lateral
       case 'mis_compras':
