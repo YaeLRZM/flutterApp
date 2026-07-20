@@ -23,7 +23,14 @@ import 'product_detail_view.dart';
 class HomeView extends StatefulWidget {
   final VoidCallback onIrAColecciones;
 
-  const HomeView({super.key, required this.onIrAColecciones});
+  /// Texto de búsqueda del top bar (`GET /api/articulos?q=`).
+  final String searchQuery;
+
+  const HomeView({
+    super.key,
+    required this.onIrAColecciones,
+    this.searchQuery = '',
+  });
 
   @override
   State<HomeView> createState() => _HomeViewState();
@@ -58,6 +65,14 @@ class _HomeViewState extends State<HomeView> {
   }
 
   @override
+  void didUpdateWidget(covariant HomeView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.searchQuery != widget.searchQuery) {
+      _cargarDatos();
+    }
+  }
+
+  @override
   void dispose() {
     FavoritosService.instance.removeListener(_onFavoritosChanged);
     super.dispose();
@@ -79,6 +94,7 @@ class _HomeViewState extends State<HomeView> {
       final categorias = await _categoriaService.fetchCategorias();
       final feed = await _articuloService.fetchArticulos(
         limit: kMaxArticulosHome,
+        q: widget.searchQuery,
       );
       // Ofertas: solo si la API trae descuento; si no, caja vacía (no mock).
       final ofertas = await _articuloService.fetchOfertasRelampago(limit: 2);
@@ -159,6 +175,7 @@ class _HomeViewState extends State<HomeView> {
     }
 
     final articulos = _articulosFiltrados;
+    final hasQuery = widget.searchQuery.trim().isNotEmpty;
 
     return RefreshIndicator(
       onRefresh: _cargarDatos,
@@ -173,10 +190,39 @@ class _HomeViewState extends State<HomeView> {
               onSelect: (id) => setState(() => _selectedCategoriaId = id),
               onVerMas: _irACategorias,
             ),
+            if (hasQuery) ...[
+              const SizedBox(height: 8),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  'Resultados para "${widget.searchQuery.trim()}"'
+                  '${articulos.isEmpty ? ' (0)' : ' (${articulos.length})'}',
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.black54,
+                  ),
+                ),
+              ),
+            ],
             const SizedBox(height: 16),
-            FlashSalesBox(articulos: _ofertasRelampago),
-            const SizedBox(height: 16),
-            ..._buildFeedBlocks(articulos),
+            if (!hasQuery) ...[
+              FlashSalesBox(articulos: _ofertasRelampago),
+              const SizedBox(height: 16),
+            ],
+            if (articulos.isEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 40),
+                child: Text(
+                  hasQuery
+                      ? 'No encontramos piezas con ese texto.\nPrueba “huipil”, “rebozo” o una comunidad.'
+                      : 'No hay piezas para mostrar.',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: Colors.black54),
+                ),
+              )
+            else
+              ..._buildFeedBlocks(articulos),
           ],
         ),
       ),

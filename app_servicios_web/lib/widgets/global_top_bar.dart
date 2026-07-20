@@ -3,30 +3,45 @@ import 'package:google_fonts/google_fonts.dart';
 
 enum UserType { client, seller }
 
-class GlobalTopBar extends StatelessWidget implements PreferredSizeWidget {
+class GlobalTopBar extends StatefulWidget implements PreferredSizeWidget {
   final String title;
   final bool showSearch;
+
+  /// Se dispara al enviar la búsqueda (tecla buscar / enter).
+  final ValueChanged<String>? onSearchSubmitted;
+
+  /// Texto mostrado en la barra (última query).
+  final String? searchInitialText;
 
   const GlobalTopBar({
     super.key,
     this.title = 'Ixé Moda',
     this.showSearch = true,
+    this.onSearchSubmitted,
+    this.searchInitialText,
   });
 
-  // Constructor para vendedor
   const GlobalTopBar.seller({
     super.key,
     this.title = 'Ixé Moda - Vendedor',
-  }) : showSearch = false;
+  })  : showSearch = false,
+        onSearchSubmitted = null,
+        searchInitialText = null;
 
-  // Factory según tipo de usuario
   factory GlobalTopBar.forUserType({
     required UserType userType,
     String title = 'Ixé Moda',
+    ValueChanged<String>? onSearchSubmitted,
+    String? searchInitialText,
   }) {
     switch (userType) {
       case UserType.client:
-        return GlobalTopBar(title: title, showSearch: true);
+        return GlobalTopBar(
+          title: title,
+          showSearch: true,
+          onSearchSubmitted: onSearchSubmitted,
+          searchInitialText: searchInitialText,
+        );
       case UserType.seller:
         return GlobalTopBar.seller(title: title);
     }
@@ -34,8 +49,38 @@ class GlobalTopBar extends StatelessWidget implements PreferredSizeWidget {
 
   @override
   Size get preferredSize {
-    // Altura dinámica según si hay buscador o no
     return Size.fromHeight(showSearch ? 130 : 85);
+  }
+
+  @override
+  State<GlobalTopBar> createState() => _GlobalTopBarState();
+}
+
+class _GlobalTopBarState extends State<GlobalTopBar> {
+  late final TextEditingController _searchController;
+
+  @override
+  void initState() {
+    super.initState();
+    _searchController = TextEditingController(
+      text: widget.searchInitialText ?? '',
+    );
+  }
+
+  @override
+  void didUpdateWidget(covariant GlobalTopBar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final next = widget.searchInitialText ?? '';
+    if (next != _searchController.text &&
+        next != oldWidget.searchInitialText) {
+      _searchController.text = next;
+    }
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
   @override
@@ -47,7 +92,7 @@ class GlobalTopBar extends StatelessWidget implements PreferredSizeWidget {
         top: safeTop + 12,
         left: 20,
         right: 20,
-        bottom: showSearch ? 20 : 16, // menos padding inferior si no hay buscador
+        bottom: widget.showSearch ? 20 : 16,
       ),
       decoration: const BoxDecoration(
         color: Color(0xFFD81B60),
@@ -63,7 +108,7 @@ class GlobalTopBar extends StatelessWidget implements PreferredSizeWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                title,
+                widget.title,
                 style: GoogleFonts.poppins(
                   fontSize: 24,
                   fontWeight: FontWeight.w700,
@@ -93,9 +138,7 @@ class GlobalTopBar extends StatelessWidget implements PreferredSizeWidget {
               ),
             ],
           ),
-
-          // Buscador solo si está activado
-          if (showSearch) ...[
+          if (widget.showSearch) ...[
             const SizedBox(height: 18),
             Container(
               height: 45,
@@ -104,7 +147,11 @@ class GlobalTopBar extends StatelessWidget implements PreferredSizeWidget {
                 borderRadius: BorderRadius.circular(25),
               ),
               child: TextField(
+                controller: _searchController,
                 style: const TextStyle(color: Colors.white),
+                textInputAction: TextInputAction.search,
+                onSubmitted: (value) =>
+                    widget.onSearchSubmitted?.call(value.trim()),
                 decoration: InputDecoration(
                   hintText: 'Buscar en Ixé Moda',
                   hintStyle: TextStyle(color: Colors.white.withOpacity(0.7)),
@@ -118,7 +165,7 @@ class GlobalTopBar extends StatelessWidget implements PreferredSizeWidget {
               ),
             ),
           ] else
-            const SizedBox(height: 8), // pequeño espacio cuando no hay buscador
+            const SizedBox.shrink(),
         ],
       ),
     );

@@ -64,9 +64,20 @@ class ArticuloService {
 
   /// Feed principal de artículos (Inicio / home).
   /// Siempre usa Laravel (`GET /api/articulos`); no hay fallback a mock.
-  Future<List<Articulo>> fetchArticulos({int limit = kMaxArticulosHome}) async {
-    final list = await _getArticulos();
-    if (list.isEmpty) {
+  /// [q] → query param `q` (búsqueda simple por nombre/región/color/etc.).
+  Future<List<Articulo>> fetchArticulos({
+    int limit = kMaxArticulosHome,
+    String? q,
+  }) async {
+    final query = <String, String>{};
+    final term = q?.trim() ?? '';
+    if (term.isNotEmpty) {
+      query['q'] = term;
+    }
+
+    final list = await _getArticulos(query: query.isEmpty ? null : query);
+    // Búsqueda sin resultados: lista vacía (no error).
+    if (list.isEmpty && term.isEmpty) {
       throw Exception('La API no devolvió artículos');
     }
     return list.take(limit).toList();

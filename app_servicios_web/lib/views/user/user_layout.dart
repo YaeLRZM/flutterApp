@@ -35,6 +35,9 @@ class _UserLayoutState extends State<UserLayout> {
   // Usamos un String para saber exactamente qué página mostrar
   late String _activePage = widget.initialPage;
 
+  /// Query de búsqueda del catálogo (barra superior → Home).
+  String _catalogSearchQuery = '';
+
   void _toggleDrawer() {
     setState(() {
       _isDrawerOpen = !_isDrawerOpen;
@@ -91,11 +94,23 @@ class _UserLayoutState extends State<UserLayout> {
     }
   }
 
+  void _onCatalogSearch(String query) {
+    setState(() {
+      _catalogSearchQuery = query;
+      // La búsqueda aplica al feed de inicio.
+      _activePage = 'home';
+      if (_isDrawerOpen) _isDrawerOpen = false;
+    });
+  }
+
   // Decide qué widget pintar en el centro
   Widget _getContentView() {
     switch (_activePage) {
       case 'home':
-        return HomeView(onIrAColecciones: _irAColecciones);
+        return HomeView(
+          onIrAColecciones: _irAColecciones,
+          searchQuery: _catalogSearchQuery,
+        );
       case 'colecciones':
         return const CollectionsView();
       case 'favoritos':
@@ -116,7 +131,10 @@ class _UserLayoutState extends State<UserLayout> {
         return const MenuConfigView(); // <-- Vista de configuración integrada
 
       default:
-        return HomeView(onIrAColecciones: _irAColecciones);
+        return HomeView(
+          onIrAColecciones: _irAColecciones,
+          searchQuery: _catalogSearchQuery,
+        );
     }
   }
 
@@ -177,6 +195,8 @@ class _UserLayoutState extends State<UserLayout> {
                   title: _topBarTitle,
                   showSearch:
                       _activePage == 'home' || _activePage == 'colecciones',
+                  searchInitialText: _catalogSearchQuery,
+                  onSearchSubmitted: _onCatalogSearch,
                 ),
                 body: Stack(
                   children: [
