@@ -39,10 +39,15 @@ class GlobalSideMenu extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Row(
                 children: [
+                  // Avatar local (sin URL remota): evita fallos CORS en Web.
                   const CircleAvatar(
                     radius: 25,
-                    // Asset local: i.pravatar.cc falla por CORS en Flutter Web.
-                    backgroundImage: AssetImage('assets/images/icon2.png'),
+                    backgroundColor: Color(0xFFF8BBD0),
+                    child: Icon(
+                      Icons.person,
+                      color: Color(0xFFD81B60),
+                      size: 28,
+                    ),
                   ),
                   const SizedBox(width: 15),
                   Expanded(

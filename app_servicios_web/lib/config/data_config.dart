@@ -13,6 +13,10 @@
 /// `services`, nunca de dónde vienen los datos.
 const bool kUseMockData = true;
 
+/// Bypass localizado: solo [ArticuloService] usa la API real de Laravel
+/// aunque [kUseMockData] siga en `true` (categorías, carrito, etc. mock).
+const bool kUseRealArticulosApi = true;
+
 /// Máximo de publicaciones que se muestran en el feed principal antes de
 /// cortar y ofrecer el botón "Ver categorías".
 const int kMaxArticulosHome = 25;

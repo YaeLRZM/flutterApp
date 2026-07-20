@@ -73,11 +73,14 @@ class _HomeViewState extends State<HomeView> {
     });
 
     try {
+      // Categorías/cupones siguen mock (otros módulos).
+      // El feed de Inicio SIEMPRE viene de Laravel vía ArticuloService.
       final categorias = await _categoriaService.fetchCategorias();
-      final ofertas = await _articuloService.fetchOfertasRelampago(limit: 2);
       final feed = await _articuloService.fetchArticulos(
         limit: kMaxArticulosHome,
       );
+      // Ofertas: solo si la API trae descuento; si no, caja vacía (no mock).
+      final ofertas = await _articuloService.fetchOfertasRelampago(limit: 2);
 
       final tiendaIds = feed.map((a) => a.tiendaId).toSet();
       for (final tiendaId in tiendaIds) {

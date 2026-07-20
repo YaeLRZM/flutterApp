@@ -1,10 +1,7 @@
 /// Representa un registro de la tabla `articulos`.
 ///
-/// Los campos siguen la migración de Laravel. Se agregaron un par de
-/// campos "denormalizados" (nombreCategoria, imagenUrl, vendidos) que en
-/// el backend real probablemente vengan de relaciones/joins
-/// (categoria, articulo_imagenes, pedidos) — se dejan aquí planos para
-/// simplificar el consumo desde la UI mientras trabajamos con mocks.
+/// `fromJson` acepta el shape de `ArticuloResource` (Laravel) y también
+/// el shape plano de mocks locales.
 class Articulo {
   final int id;
   final int categoriaId;
@@ -22,16 +19,11 @@ class Articulo {
   final String region;
 
   /// Porcentaje de descuento activo (0-100). `null` = sin descuento.
-  /// TODO: API -> esto normalmente vendrá calculado desde el cupón /
-  /// promoción vigente de la tienda, no como columna directa de articulos.
   final double? descuentoPorcentaje;
 
-  /// TODO: API -> vendrá de un conteo sobre `pedidos`/`detalle_pedidos`.
   final int vendidos;
 
-  /// TODO: API -> vendrá de una tabla de imágenes (articulo_imagenes) o de
-  /// un storage (S3 / Laravel Storage). Por ahora solo guardamos un color
-  /// para simular una imagen distinta por artículo.
+  /// URL principal o vacío si no hay imágenes (la UI usa fallback).
   final String imagenUrl;
 
   const Articulo({
@@ -71,30 +63,81 @@ class Articulo {
     return cents.toString().padLeft(2, '0');
   }
 
+  static int _asInt(dynamic value, [int fallback = 0]) {
+    if (value == null) return fallback;
+    if (value is int) return value;
+    if (value is num) return value.round();
+    return int.tryParse(value.toString()) ?? fallback;
+  }
+
+  static double _asDouble(dynamic value, [double fallback = 0]) {
+    if (value == null) return fallback;
+    if (value is num) return value.toDouble();
+    return double.tryParse(value.toString()) ?? fallback;
+  }
+
+  static Map<String, dynamic>? _asMap(dynamic value) {
+    if (value is Map<String, dynamic>) return value;
+    if (value is Map) return Map<String, dynamic>.from(value);
+    return null;
+  }
+
+  /// Primera imagen principal, o la primera de la lista, o `imagen_url`.
+  static String _resolveImagenUrl(Map<String, dynamic> json) {
+    final imagenes = json['imagenes'];
+    if (imagenes is List && imagenes.isNotEmpty) {
+      Map<String, dynamic>? principal;
+      Map<String, dynamic>? first;
+      for (final raw in imagenes) {
+        final img = _asMap(raw);
+        if (img == null) continue;
+        first ??= img;
+        if (img['es_principal'] == true) {
+          principal = img;
+          break;
+        }
+      }
+      final chosen = principal ?? first;
+      final url = chosen?['url']?.toString();
+      if (url != null && url.isNotEmpty) return url;
+    }
+    final flat = json['imagen_url']?.toString();
+    if (flat != null && flat.isNotEmpty) return flat;
+    return '';
+  }
+
   factory Articulo.fromJson(Map<String, dynamic> json) {
-    // TODO: API -> ajustar nombres de llaves a lo que realmente regrese
-    // el endpoint de Laravel (ej. Resource/Fractal), incluyendo relaciones
-    // cargadas como `categoria.nombre`.
+    final categoria = _asMap(json['categoria']);
+    final artesano = _asMap(json['artesano']);
+    final tienda = _asMap(json['tienda']);
+
+    final descripcionRaw = json['descripcion']?.toString();
+    final descripcion =
+        (descripcionRaw == null || descripcionRaw.isEmpty) ? null : descripcionRaw;
+
     return Articulo(
-      id: json['id'],
-      categoriaId: json['categoria_id'],
-      categoriaNombre: json['categoria']?['nombre'] ?? '',
-      artesanoId: json['artesano_id'],
-      tiendaId: json['tienda_id'],
-      nombre: json['nombre'],
-      descripcion: json['descripcion'],
-      precio: double.parse(json['precio'].toString()),
-      stock: json['stock'],
-      talla: json['talla'] ?? '',
-      color: json['color'] ?? '',
-      bordado: json['bordado'] ?? '',
-      tela: json['tela'] ?? '',
-      region: json['region'] ?? '',
+      id: _asInt(json['id']),
+      categoriaId: _asInt(json['categoria_id'] ?? categoria?['id']),
+      categoriaNombre:
+          categoria?['nombre']?.toString() ??
+          json['categoria_nombre']?.toString() ??
+          '',
+      artesanoId: _asInt(json['artesano_id'] ?? artesano?['id']),
+      tiendaId: _asInt(json['tienda_id'] ?? tienda?['id']),
+      nombre: json['nombre']?.toString() ?? '',
+      descripcion: descripcion,
+      precio: _asDouble(json['precio']),
+      stock: _asInt(json['stock']),
+      talla: json['talla']?.toString() ?? '',
+      color: json['color']?.toString() ?? '',
+      bordado: json['bordado']?.toString() ?? '',
+      tela: json['tela']?.toString() ?? '',
+      region: json['region']?.toString() ?? '',
       descuentoPorcentaje: json['descuento_porcentaje'] != null
-          ? double.parse(json['descuento_porcentaje'].toString())
+          ? _asDouble(json['descuento_porcentaje'])
           : null,
-      vendidos: json['vendidos'] ?? 0,
-      imagenUrl: json['imagen_url'] ?? '',
+      vendidos: _asInt(json['vendidos']),
+      imagenUrl: _resolveImagenUrl(json),
     );
   }
 }

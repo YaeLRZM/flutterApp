@@ -100,6 +100,11 @@
       document.getElementById("splash-branding")?.remove();
       document.body.style.background = "transparent";
     }
+    // flutter_native_splash inserts the function but must be called when
+    // Flutter paints its first frame; otherwise #splash stays forever on top.
+    window.addEventListener('flutter-first-frame', function () {
+      removeSplashFromWeb();
+    });
   </script>
 </head>
 <body>

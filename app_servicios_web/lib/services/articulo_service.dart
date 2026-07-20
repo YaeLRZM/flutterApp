@@ -1,40 +1,80 @@
+import 'dart:convert';
+
+import 'package:http/http.dart' as http;
+
 import '../config/data_config.dart';
 import '../mock/mock_articulos.dart';
 import '../models/articulo.dart';
+import 'api_service.dart';
 
 /// Punto único de acceso a los artículos. La UI SIEMPRE llama a este
-/// servicio, nunca a `mock_articulos.dart` directamente, para que el día
-/// de mañana solo se edite este archivo.
+/// servicio, nunca a `mock_articulos.dart` directamente.
 class ArticuloService {
-  /// Regresa el feed principal de artículos (home).
-  ///
-  /// TODO: API -> GET /api/articulos?page=1
-  /// Debe regresar algo paginado desde Laravel; aquí simulamos cortando
-  /// la lista mock a `limit`.
-  Future<List<Articulo>> fetchArticulos({int limit = kMaxArticulosHome}) async {
-    if (kUseMockData) {
-      // Simula latencia de red para que los loaders/FutureBuilder se
-      // comporten igual que con la API real.
-      await Future.delayed(const Duration(milliseconds: 300));
-      return mockArticulos.take(limit).toList();
-    }
+  /// API real solo para artículos (no apaga mocks globales).
+  bool get _useApi => kUseRealArticulosApi || !kUseMockData;
 
-    // TODO: API -> reemplazar por una llamada http (dio/http package),
-    // parseando con Articulo.fromJson por cada elemento de "data".
-    throw UnimplementedError(
-      'Conectar ArticuloService.fetchArticulos() a la API de Laravel',
-    );
+  List<Articulo> _parseCollection(String body) {
+    final decoded = jsonDecode(body);
+    final List<dynamic> raw;
+    if (decoded is Map && decoded['data'] is List) {
+      raw = decoded['data'] as List<dynamic>;
+    } else if (decoded is List) {
+      raw = decoded;
+    } else {
+      return const [];
+    }
+    final out = <Articulo>[];
+    for (final e in raw) {
+      if (e is Map) {
+        out.add(Articulo.fromJson(Map<String, dynamic>.from(e)));
+      }
+    }
+    return out;
   }
 
-  /// Regresa cuántos artículos hay por cada categoría, ej. {2: 5, 4: 3}.
-  /// Se usa en CollectionsView para mostrar "+N artículos" por categoría
-  /// y las estadísticas del encabezado.
-  ///
-  /// TODO: API -> esto normalmente vendría ya calculado desde Laravel,
-  /// ej. `Categoria::withCount('articulos')->get()`, en vez de contar en
-  /// el cliente sobre la lista completa.
+  Articulo? _parseOne(String body) {
+    final decoded = jsonDecode(body);
+    Map<String, dynamic>? map;
+    if (decoded is Map && decoded['data'] is Map) {
+      map = Map<String, dynamic>.from(decoded['data'] as Map);
+    } else if (decoded is Map) {
+      map = Map<String, dynamic>.from(decoded);
+    }
+    if (map == null) return null;
+    return Articulo.fromJson(map);
+  }
+
+  Future<List<Articulo>> _getArticulos({
+    Map<String, String>? query,
+  }) async {
+    final uri = Uri.parse('${ApiService.baseUrl}/articulos').replace(
+      queryParameters: query == null || query.isEmpty ? null : query,
+    );
+    final response = await http.get(
+      uri,
+      headers: const {'Accept': 'application/json'},
+    );
+    if (response.statusCode != 200) {
+      throw Exception(
+        'Error al cargar artículos (${response.statusCode})',
+      );
+    }
+    return _parseCollection(response.body);
+  }
+
+  /// Feed principal de artículos (Inicio / home).
+  /// Siempre usa Laravel (`GET /api/articulos`); no hay fallback a mock.
+  Future<List<Articulo>> fetchArticulos({int limit = kMaxArticulosHome}) async {
+    final list = await _getArticulos();
+    if (list.isEmpty) {
+      throw Exception('La API no devolvió artículos');
+    }
+    return list.take(limit).toList();
+  }
+
+  /// Cuántos artículos hay por cada categoría, ej. {2: 5, 4: 3}.
   Future<Map<int, int>> contarArticulosPorCategoria() async {
-    if (kUseMockData) {
+    if (!_useApi) {
       await Future.delayed(const Duration(milliseconds: 150));
       final conteo = <int, int>{};
       for (final articulo in mockArticulos) {
@@ -43,36 +83,36 @@ class ArticuloService {
       return conteo;
     }
 
-    throw UnimplementedError(
-      'Conectar ArticuloService.contarArticulosPorCategoria() a la API de Laravel',
-    );
+    final list = await _getArticulos();
+    final conteo = <int, int>{};
+    for (final articulo in list) {
+      conteo[articulo.categoriaId] = (conteo[articulo.categoriaId] ?? 0) + 1;
+    }
+    return conteo;
   }
 
-  /// Regresa los artículos correspondientes a una lista de ids, en el
-  /// mismo orden en que se pidieron. Usado por `FavoritesView`.
-  ///
-  /// TODO: API -> GET /api/articulos?ids=1,2,3
+  /// Artículos por ids (mismo orden). Usado por FavoritesView.
   Future<List<Articulo>> fetchArticulosPorIds(Iterable<int> ids) async {
-    if (kUseMockData) {
+    final idsList = ids.toList();
+    if (idsList.isEmpty) return const [];
+
+    if (!_useApi) {
       await Future.delayed(const Duration(milliseconds: 200));
-      final idsList = ids.toList();
       final porId = {for (final a in mockArticulos) a.id: a};
       return idsList.map((id) => porId[id]).whereType<Articulo>().toList();
     }
 
-    throw UnimplementedError(
-      'Conectar ArticuloService.fetchArticulosPorIds() a la API de Laravel',
-    );
+    final list = await _getArticulos();
+    final porId = {for (final a in list) a.id: a};
+    return idsList.map((id) => porId[id]).whereType<Articulo>().toList();
   }
 
-  /// Regresa los artículos de una categoría (para CategoryDetailView).
-  ///
-  /// TODO: API -> GET /api/categorias/{categoriaId}/articulos?page=1
+  /// Artículos de una categoría.
   Future<List<Articulo>> fetchArticulosPorCategoria(
     int categoriaId, {
     int limit = kMaxArticulosCategoria,
   }) async {
-    if (kUseMockData) {
+    if (!_useApi) {
       await Future.delayed(const Duration(milliseconds: 300));
       return mockArticulos
           .where((a) => a.categoriaId == categoriaId)
@@ -80,16 +120,15 @@ class ArticuloService {
           .toList();
     }
 
-    throw UnimplementedError(
-      'Conectar ArticuloService.fetchArticulosPorCategoria() a la API de Laravel',
+    final list = await _getArticulos(
+      query: {'categoria': categoriaId.toString()},
     );
+    return list.take(limit).toList();
   }
 
-  /// Regresa un artículo específico (para la vista de detalle).
-  ///
-  /// TODO: API -> GET /api/articulos/{id}
+  /// Un artículo por id.
   Future<Articulo?> fetchArticuloPorId(int id) async {
-    if (kUseMockData) {
+    if (!_useApi) {
       await Future.delayed(const Duration(milliseconds: 200));
       try {
         return mockArticulos.firstWhere((a) => a.id == id);
@@ -98,20 +137,26 @@ class ArticuloService {
       }
     }
 
-    throw UnimplementedError(
-      'Conectar ArticuloService.fetchArticuloPorId() a la API de Laravel',
+    final response = await http.get(
+      Uri.parse('${ApiService.baseUrl}/articulos/$id'),
+      headers: const {'Accept': 'application/json'},
     );
+    if (response.statusCode == 404) return null;
+    if (response.statusCode != 200) {
+      throw Exception(
+        'Error al cargar artículo $id (${response.statusCode})',
+      );
+    }
+    return _parseOne(response.body);
   }
 
-  /// Regresa otros artículos del mismo artesano (sección "Más obras de...").
-  ///
-  /// TODO: API -> GET /api/artesanos/{artesanoId}/articulos?exclude={excludeId}
+  /// Otros artículos del mismo artesano.
   Future<List<Articulo>> fetchArticulosPorArtesano(
     int artesanoId, {
     int excludeId = -1,
     int limit = 4,
   }) async {
-    if (kUseMockData) {
+    if (!_useApi) {
       await Future.delayed(const Duration(milliseconds: 200));
       return mockArticulos
           .where((a) => a.artesanoId == artesanoId && a.id != excludeId)
@@ -119,65 +164,37 @@ class ArticuloService {
           .toList();
     }
 
-    throw UnimplementedError(
-      'Conectar ArticuloService.fetchArticulosPorArtesano() a la API de Laravel',
+    final list = await _getArticulos(
+      query: {'artesano': artesanoId.toString()},
     );
+    return list.where((a) => a.id != excludeId).take(limit).toList();
   }
 
-  /// Regresa cuántos artículos hay por categoría, ej. {2: 14, 3: 8, ...}.
-  /// Usado en las tarjetas de la vista de Colecciones ("+14 artículos").
-  ///
-  /// TODO: API -> GET /api/categorias/conteo-articulos
-  /// (o venir ya incluido como `articulos_count` en `GET /api/categorias`
-  /// si usan `withCount('articulos')` en el backend).
+  /// Conteo por categoría (Colecciones).
   Future<Map<int, int>> fetchConteoArticulosPorCategoria() async {
-    if (kUseMockData) {
-      await Future.delayed(const Duration(milliseconds: 150));
-      final conteo = <int, int>{};
-      for (final articulo in mockArticulos) {
-        conteo[articulo.categoriaId] = (conteo[articulo.categoriaId] ?? 0) + 1;
-      }
-      return conteo;
-    }
-
-    throw UnimplementedError(
-      'Conectar ArticuloService.fetchConteoArticulosPorCategoria() a la API de Laravel',
-    );
+    return contarArticulosPorCategoria();
   }
 
-  /// Regresa los artículos en "oferta relámpago" (con mayor descuento).
-  ///
-  /// TODO: API -> GET /api/articulos/ofertas-relampago
+  /// Ofertas relámpago (caja superior de Inicio).
+  /// Siempre consulta Laravel; sin descuento en API → lista vacía (no mock).
   Future<List<Articulo>> fetchOfertasRelampago({int limit = 2}) async {
-    if (kUseMockData) {
-      await Future.delayed(const Duration(milliseconds: 300));
-      final conDescuento = mockArticulos.where((a) => a.tieneDescuento).toList()
-        ..sort(
-          (a, b) => b.descuentoPorcentaje!.compareTo(a.descuentoPorcentaje!),
-        );
-      return conDescuento.take(limit).toList();
-    }
-
-    throw UnimplementedError(
-      'Conectar ArticuloService.fetchOfertasRelampago() a la API de Laravel',
-    );
+    final list = await _getArticulos();
+    final conDescuento = list.where((a) => a.tieneDescuento).toList()
+      ..sort(
+        (a, b) =>
+            (b.descuentoPorcentaje ?? 0).compareTo(a.descuentoPorcentaje ?? 0),
+      );
+    return conDescuento.take(limit).toList();
   }
 
-  /// Regresa artículos con descuento para el banner promocional
-  /// "Prendas con descuento".
-  ///
-  /// TODO: API -> GET /api/articulos?con_descuento=1
+  /// Artículos con descuento (banner). Sin descuento en API → vacío.
   Future<List<Articulo>> fetchArticulosConDescuento({int limit = 2}) async {
-    if (kUseMockData) {
+    if (!_useApi) {
       await Future.delayed(const Duration(milliseconds: 200));
-      final conDescuento = mockArticulos
-          .where((a) => a.tieneDescuento)
-          .toList();
-      return conDescuento.take(limit).toList();
+      return mockArticulos.where((a) => a.tieneDescuento).take(limit).toList();
     }
 
-    throw UnimplementedError(
-      'Conectar ArticuloService.fetchArticulosConDescuento() a la API de Laravel',
-    );
+    final list = await _getArticulos();
+    return list.where((a) => a.tieneDescuento).take(limit).toList();
   }
 }
