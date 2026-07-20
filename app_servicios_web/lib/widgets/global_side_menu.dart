@@ -37,9 +37,8 @@ class GlobalSideMenu extends StatelessWidget {
                 children: [
                   const CircleAvatar(
                     radius: 25,
-                    backgroundImage: NetworkImage(
-                      'https://i.pravatar.cc/150?img=47',
-                    ),
+                    // Asset local: i.pravatar.cc falla por CORS en Flutter Web.
+                    backgroundImage: AssetImage('assets/images/icon2.png'),
                   ),
                   const SizedBox(width: 15),
                   Expanded(
@@ -239,7 +238,8 @@ class GlobalSideMenu extends StatelessWidget {
     bool isSelected = false,
     String? badge,
   }) {
-    return Container(
+    // Material propio: evita warning de ink/ListTile dentro de ColoredBox.
+    return Material(
       color: isSelected
           ? const Color(0xFFD81B60).withOpacity(0.1)
           : Colors.transparent,
