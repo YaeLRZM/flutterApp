@@ -11,11 +11,15 @@
 ///
 /// No hace falta tocar ninguna vista: las vistas solo conocen los
 /// `services`, nunca de dónde vienen los datos.
+/// Módulos secundarios (carrito, cupones, reseñas, etc.) aún pueden usar mock.
+/// Catálogo principal (artículos + categorías) usa API real vía flags abajo.
 const bool kUseMockData = true;
 
-/// Bypass localizado: solo [ArticuloService] usa la API real de Laravel
-/// aunque [kUseMockData] siga en `true` (categorías, carrito, etc. mock).
+/// Bypass: [ArticuloService] usa Laravel aunque [kUseMockData] sea true.
 const bool kUseRealArticulosApi = true;
+
+/// Bypass: [CategoriaService] usa Laravel aunque [kUseMockData] sea true.
+const bool kUseRealCategoriasApi = true;
 
 /// Máximo de publicaciones que se muestran en el feed principal antes de
 /// cortar y ofrecer el botón "Ver categorías".

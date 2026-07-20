@@ -45,7 +45,8 @@ class _HomeViewState extends State<HomeView> {
   // vigente de cada `tiendaId` distinto presente en `_feed`.
   final Map<int, Cupon?> _cuponesPorTienda = {};
 
-  int _selectedCategoriaId = 1; // 1 = "Todo" en el mock
+  /// 0 = agregador "Todo" (cliente); ids reales vienen del backend.
+  int _selectedCategoriaId = 0;
 
   @override
   void initState() {
@@ -73,8 +74,8 @@ class _HomeViewState extends State<HomeView> {
     });
 
     try {
-      // Categorías/cupones siguen mock (otros módulos).
-      // El feed de Inicio SIEMPRE viene de Laravel vía ArticuloService.
+      // Catálogo principal: categorías + artículos desde Laravel.
+      // Cupones pueden seguir mock (módulo secundario).
       final categorias = await _categoriaService.fetchCategorias();
       final feed = await _articuloService.fetchArticulos(
         limit: kMaxArticulosHome,
@@ -84,8 +85,12 @@ class _HomeViewState extends State<HomeView> {
 
       final tiendaIds = feed.map((a) => a.tiendaId).toSet();
       for (final tiendaId in tiendaIds) {
-        _cuponesPorTienda[tiendaId] = await _cuponService
-            .fetchCuponVigentePorTienda(tiendaId);
+        try {
+          _cuponesPorTienda[tiendaId] = await _cuponService
+              .fetchCuponVigentePorTienda(tiendaId);
+        } catch (_) {
+          _cuponesPorTienda[tiendaId] = null;
+        }
       }
 
       if (!mounted) return;
@@ -93,6 +98,7 @@ class _HomeViewState extends State<HomeView> {
         _categorias = categorias;
         _ofertasRelampago = ofertas;
         _feed = feed;
+        _selectedCategoriaId = 0;
         _loading = false;
       });
     } catch (e) {
@@ -105,7 +111,12 @@ class _HomeViewState extends State<HomeView> {
   }
 
   List<Articulo> get _articulosFiltrados {
-    if (_selectedCategoriaId == 1) return _feed; // "Todo"
+    // 0 o categoría esGeneral = "Todo"
+    final selected = _categorias.where((c) => c.id == _selectedCategoriaId);
+    if (_selectedCategoriaId == 0 ||
+        (selected.isNotEmpty && selected.first.esGeneral)) {
+      return _feed;
+    }
     return _feed.where((a) => a.categoriaId == _selectedCategoriaId).toList();
   }
 
