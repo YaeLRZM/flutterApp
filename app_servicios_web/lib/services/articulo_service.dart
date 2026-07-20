@@ -170,6 +170,26 @@ class ArticuloService {
     return list.where((a) => a.id != excludeId).take(limit).toList();
   }
 
+  /// Artículos de una tienda: GET /api/articulos?tienda=
+  Future<List<Articulo>> fetchArticulosPorTienda(
+    int tiendaId, {
+    int excludeId = -1,
+    int limit = 50,
+  }) async {
+    if (!_useApi) {
+      await Future.delayed(const Duration(milliseconds: 200));
+      return mockArticulos
+          .where((a) => a.tiendaId == tiendaId && a.id != excludeId)
+          .take(limit)
+          .toList();
+    }
+
+    final list = await _getArticulos(
+      query: {'tienda': tiendaId.toString()},
+    );
+    return list.where((a) => a.id != excludeId).take(limit).toList();
+  }
+
   /// Conteo por categoría (Colecciones).
   Future<Map<int, int>> fetchConteoArticulosPorCategoria() async {
     return contarArticulosPorCategoria();

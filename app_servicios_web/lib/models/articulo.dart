@@ -7,7 +7,9 @@ class Articulo {
   final int categoriaId;
   final String categoriaNombre;
   final int artesanoId;
+  final String artesanoNombre;
   final int tiendaId;
+  final String tiendaNombre;
   final String nombre;
   final String? descripcion;
   final double precio;
@@ -31,7 +33,9 @@ class Articulo {
     required this.categoriaId,
     required this.categoriaNombre,
     required this.artesanoId,
+    this.artesanoNombre = '',
     required this.tiendaId,
+    this.tiendaNombre = '',
     required this.nombre,
     this.descripcion,
     required this.precio,
@@ -123,7 +127,13 @@ class Articulo {
           json['categoria_nombre']?.toString() ??
           '',
       artesanoId: _asInt(json['artesano_id'] ?? artesano?['id']),
+      artesanoNombre: artesano?['nombre']?.toString() ??
+          json['artesano_nombre']?.toString() ??
+          '',
       tiendaId: _asInt(json['tienda_id'] ?? tienda?['id']),
+      tiendaNombre: tienda?['nombre']?.toString() ??
+          json['tienda_nombre']?.toString() ??
+          '',
       nombre: json['nombre']?.toString() ?? '',
       descripcion: descripcion,
       precio: _asDouble(json['precio']),

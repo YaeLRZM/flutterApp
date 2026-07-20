@@ -110,4 +110,46 @@ class ApiService {
     }
     return {'success': true};
   }
+
+  /// Perfil del usuario autenticado: GET /api/me.
+  ///
+  /// Retorna:
+  /// - `{success: true, user: {...}}`
+  /// - `{success: false, message: '...'}`
+  Future<Map<String, dynamic>> fetchMe() async {
+    try {
+      final token = await getToken();
+      if (token == null) {
+        return {'success': false, 'message': 'Sin sesión'};
+      }
+
+      final response = await http
+          .get(
+            Uri.parse('$baseUrl/me'),
+            headers: await getAuthHeaders(includeContentType: false),
+          )
+          .timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 401) {
+        return {'success': false, 'message': 'Sesión expirada'};
+      }
+      if (response.statusCode != 200) {
+        return {
+          'success': false,
+          'message': 'No se pudo cargar el perfil (${response.statusCode})',
+        };
+      }
+
+      final data = jsonDecode(response.body);
+      if (data is Map<String, dynamic>) {
+        return {'success': true, 'user': data};
+      }
+      if (data is Map) {
+        return {'success': true, 'user': Map<String, dynamic>.from(data)};
+      }
+      return {'success': false, 'message': 'Respuesta de perfil inválida'};
+    } catch (e) {
+      return {'success': false, 'message': 'Error de conexión: $e'};
+    }
+  }
 }

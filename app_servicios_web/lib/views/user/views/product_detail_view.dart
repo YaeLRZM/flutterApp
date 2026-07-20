@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 
 import '../../../models/artesano.dart';
 import '../../../models/articulo.dart';
+import '../../../models/resena.dart';
 import '../../../models/resena_resumen.dart';
+import '../../../services/api_service.dart';
 import '../../../services/articulo_imagen_service.dart';
 import '../../../services/articulo_service.dart';
 import '../../../services/artesano_service.dart';
@@ -12,6 +14,7 @@ import '../../../services/resena_service.dart';
 import '../../../widgets/product_grid_item.dart';
 import '../../../widgets/product_image_gallery.dart';
 import 'checkout_view.dart';
+import 'public_catalog_entity_view.dart';
 
 /// Vista de detalle de un artículo. Se navega a ella pasando el
 /// `articuloId` (ej. al tocar una tarjeta en el Home):
@@ -47,7 +50,13 @@ class _ProductDetailViewState extends State<ProductDetailView> {
   Artesano? _artesano;
   List<String> _imagenes = [];
   ResenaResumen? _resumenResenas;
+  List<Resena> _resenas = [];
   List<Articulo> _masObrasDelArtesano = [];
+  bool _loggedIn = false;
+
+  final _comentarioCtrl = TextEditingController();
+  int _nuevaCalificacion = 5;
+  bool _enviandoResena = false;
 
   @override
   void initState() {
@@ -59,6 +68,7 @@ class _ProductDetailViewState extends State<ProductDetailView> {
   @override
   void dispose() {
     FavoritosService.instance.removeListener(_onFavoritosChanged);
+    _comentarioCtrl.dispose();
     super.dispose();
   }
 
@@ -84,10 +94,11 @@ class _ProductDetailViewState extends State<ProductDetailView> {
         return;
       }
 
+      final token = await ApiService().getToken();
       final results = await Future.wait([
         _artesanoService.fetchArtesanoPorId(articulo.artesanoId),
         _imagenService.fetchImagenesPorArticulo(articulo.id),
-        _resenaService.fetchResumenPorArticulo(articulo.id),
+        _resenaService.fetchPorArticulo(articulo.id),
         _articuloService.fetchArticulosPorArtesano(
           articulo.artesanoId,
           excludeId: articulo.id,
@@ -95,13 +106,27 @@ class _ProductDetailViewState extends State<ProductDetailView> {
         ),
       ]);
 
+      final resenas = results[2] as List<Resena>;
+      ResenaResumen resumen;
+      if (resenas.isEmpty) {
+        resumen = const ResenaResumen(promedio: 0, total: 0);
+      } else {
+        final sum = resenas.fold<int>(0, (a, r) => a + r.calificacion);
+        resumen = ResenaResumen(
+          promedio: double.parse((sum / resenas.length).toStringAsFixed(1)),
+          total: resenas.length,
+        );
+      }
+
       if (!mounted) return;
       setState(() {
         _articulo = articulo;
         _artesano = results[0] as Artesano?;
         _imagenes = results[1] as List<String>;
-        _resumenResenas = results[2] as ResenaResumen;
+        _resenas = resenas;
+        _resumenResenas = resumen;
         _masObrasDelArtesano = results[3] as List<Articulo>;
+        _loggedIn = token != null;
         _loading = false;
       });
     } catch (e) {
@@ -122,12 +147,65 @@ class _ProductDetailViewState extends State<ProductDetailView> {
     );
   }
 
-  void _verColeccionDelArtesano() {
-    // TODO: NAV -> Navigator.push a una vista "ColeccionArtesanoView"
-    // filtrando por artesanoId.
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Aquí abriremos la colección completa')),
+  void _abrirArtesano() {
+    final a = _articulo;
+    if (a == null || a.artesanoId <= 0) return;
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => PublicCatalogEntityView(
+          type: PublicCatalogEntityType.artesano,
+          entityId: a.artesanoId,
+          fallbackTitle: a.artesanoNombre.isNotEmpty
+              ? a.artesanoNombre
+              : _artesano?.nombre,
+        ),
+      ),
     );
+  }
+
+  void _abrirTienda() {
+    final a = _articulo;
+    if (a == null || a.tiendaId <= 0) return;
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => PublicCatalogEntityView(
+          type: PublicCatalogEntityType.tienda,
+          entityId: a.tiendaId,
+          fallbackTitle: a.tiendaNombre,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _enviarResena() async {
+    final articulo = _articulo;
+    if (articulo == null || _enviandoResena) return;
+
+    setState(() => _enviandoResena = true);
+    final result = await _resenaService.crearResena(
+      articuloId: articulo.id,
+      calificacion: _nuevaCalificacion,
+      comentario: _comentarioCtrl.text,
+    );
+    if (!mounted) return;
+    setState(() => _enviandoResena = false);
+
+    if (result['success'] == true) {
+      _comentarioCtrl.clear();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Reseña publicada')),
+      );
+      await _cargarDatos();
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(result['message']?.toString() ?? 'Error al publicar'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   void _comprarAhora() {
@@ -214,7 +292,15 @@ class _ProductDetailViewState extends State<ProductDetailView> {
             _buildProductHeader(articulo, esFavorito),
             const SizedBox(height: 24),
             if (_artesano != null) ...[
-              _buildArtisanCard(_artesano!),
+              InkWell(
+                onTap: _abrirArtesano,
+                borderRadius: BorderRadius.circular(16),
+                child: _buildArtisanCard(_artesano!),
+              ),
+              const SizedBox(height: 12),
+            ],
+            if (articulo.tiendaId > 0) ...[
+              _buildStoreChip(articulo),
               const SizedBox(height: 24),
             ],
             _buildDescription(articulo),
@@ -222,6 +308,8 @@ class _ProductDetailViewState extends State<ProductDetailView> {
             _buildActionButtons(),
             const SizedBox(height: 24),
             _buildFeatureBadges(),
+            const SizedBox(height: 28),
+            _buildResenasSection(),
             if (_masObrasDelArtesano.isNotEmpty) ...[
               const SizedBox(height: 32),
               _buildMoreFromArtisanSection(),
@@ -229,6 +317,187 @@ class _ProductDetailViewState extends State<ProductDetailView> {
             const SizedBox(height: 40),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildStoreChip(Articulo articulo) {
+    final name = articulo.tiendaNombre.isNotEmpty
+        ? articulo.tiendaNombre
+        : 'Ver tienda';
+    return InkWell(
+      onTap: _abrirTienda,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.black12),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.storefront_outlined, color: Color(0xFFD81B60)),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                name,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 14,
+                ),
+              ),
+            ),
+            const Text(
+              'Ver tienda',
+              style: TextStyle(
+                color: Color(0xFFD81B60),
+                fontWeight: FontWeight.w600,
+                fontSize: 12,
+              ),
+            ),
+            const Icon(Icons.chevron_right, color: Color(0xFFD81B60)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildResenasSection() {
+    final resumen = _resumenResenas;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'RESEÑAS',
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w900,
+            letterSpacing: 0.5,
+          ),
+        ),
+        const SizedBox(height: 8),
+        if (resumen != null && resumen.total > 0)
+          Text(
+            '${resumen.promedio} ★ · ${resumen.total} reseña(s)',
+            style: const TextStyle(color: Colors.black54, fontSize: 13),
+          )
+        else
+          const Text(
+            'Aún no hay reseñas para esta pieza.',
+            style: TextStyle(color: Colors.black54, fontSize: 13),
+          ),
+        const SizedBox(height: 12),
+        ..._resenas.take(10).map((r) {
+          return Container(
+            width: double.infinity,
+            margin: const EdgeInsets.only(bottom: 10),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.black12),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Text(
+                      '${r.calificacion}/5',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xFFD81B60),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        r.autorNombre?.isNotEmpty == true
+                            ? r.autorNombre!
+                            : 'Usuario',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                if (r.comentario.isNotEmpty) ...[
+                  const SizedBox(height: 6),
+                  Text(r.comentario, style: const TextStyle(fontSize: 13)),
+                ],
+              ],
+            ),
+          );
+        }),
+        const SizedBox(height: 8),
+        if (_loggedIn) _buildFormResena() else
+          const Text(
+            'Inicia sesión para dejar una reseña.',
+            style: TextStyle(fontSize: 12, color: Colors.black45),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildFormResena() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF8F6),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFD81B60).withOpacity(0.2)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Escribe tu reseña',
+            style: TextStyle(fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: List.generate(5, (i) {
+              final star = i + 1;
+              return IconButton(
+                visualDensity: VisualDensity.compact,
+                onPressed: () => setState(() => _nuevaCalificacion = star),
+                icon: Icon(
+                  star <= _nuevaCalificacion ? Icons.star : Icons.star_border,
+                  color: Colors.amber,
+                ),
+              );
+            }),
+          ),
+          TextField(
+            controller: _comentarioCtrl,
+            maxLines: 3,
+            decoration: InputDecoration(
+              hintText: 'Comentario (opcional)',
+              filled: true,
+              fillColor: Colors.white,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+          Align(
+            alignment: Alignment.centerRight,
+            child: ElevatedButton(
+              onPressed: _enviandoResena ? null : _enviarResena,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFD81B60),
+                foregroundColor: Colors.white,
+              ),
+              child: Text(_enviandoResena ? 'Enviando…' : 'Publicar'),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -607,7 +876,9 @@ class _ProductDetailViewState extends State<ProductDetailView> {
 
   // --- 7. Más obras del artesano ---
   Widget _buildMoreFromArtisanSection() {
-    final nombreArtesano = _artesano?.nombre.split(' ').first ?? '';
+    final nombreArtesano = _artesano?.nombre.split(' ').first ??
+        _articulo?.artesanoNombre.split(' ').first ??
+        '';
 
     return Column(
       children: [
@@ -636,7 +907,7 @@ class _ProductDetailViewState extends State<ProductDetailView> {
               ),
             ),
             GestureDetector(
-              onTap: _verColeccionDelArtesano,
+              onTap: _abrirArtesano,
               child: const Row(
                 children: [
                   Text(
