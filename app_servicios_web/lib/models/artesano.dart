@@ -27,13 +27,19 @@ class Artesano {
   });
 
   factory Artesano.fromJson(Map<String, dynamic> json) {
+    final idRaw = json['id'];
+    final id = idRaw is int
+        ? idRaw
+        : int.tryParse(idRaw?.toString() ?? '') ?? 0;
+
     return Artesano(
-      id: json['id'],
-      nombre: json['nombre'],
-      titulo: json['titulo'] ?? 'Artesano',
-      region: json['region'] ?? '',
-      verificado: json['verificado'] ?? false,
-      avatarUrl: json['avatar_url'] ?? '',
+      id: id,
+      nombre: json['nombre']?.toString() ?? '',
+      // Laravel actual solo expone id/nombre; defaults seguros para la UI.
+      titulo: json['titulo']?.toString() ?? 'Artesano/a de Oaxaca',
+      region: json['region']?.toString() ?? 'Oaxaca',
+      verificado: json['verificado'] == true,
+      avatarUrl: json['avatar_url']?.toString() ?? '',
     );
   }
 }

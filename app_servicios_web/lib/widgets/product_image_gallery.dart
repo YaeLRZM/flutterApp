@@ -53,6 +53,22 @@ class _ProductImageGalleryState extends State<ProductImageGallery> {
     }
   }
 
+  /// URL http(s) → red; mock:// u otra → placeholder gris (no rompe).
+  Widget _buildImageBox(String url, {BoxFit fit = BoxFit.cover}) {
+    final isNetwork =
+        url.startsWith('http://') || url.startsWith('https://');
+    if (!isNetwork) {
+      return Container(color: Colors.grey[300]);
+    }
+    return Image.network(
+      url,
+      fit: fit,
+      width: double.infinity,
+      height: double.infinity,
+      errorBuilder: (_, __, ___) => Container(color: Colors.grey[300]),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (widget.imagenes.isEmpty) {
@@ -80,8 +96,7 @@ class _ProductImageGalleryState extends State<ProductImageGallery> {
                   itemCount: widget.imagenes.length,
                   onPageChanged: (i) => setState(() => _currentPage = i),
                   itemBuilder: (context, index) {
-                    // TODO: API -> Image.network(widget.imagenes[index])
-                    return Container(color: Colors.grey[300]);
+                    return _buildImageBox(widget.imagenes[index]);
                   },
                 ),
               ),
@@ -152,6 +167,8 @@ class _ProductImageGalleryState extends State<ProductImageGallery> {
                         ? Border.all(color: const Color(0xFFD81B60), width: 2)
                         : null,
                   ),
+                  clipBehavior: Clip.antiAlias,
+                  child: _buildImageBox(widget.imagenes[i]),
                 ),
               );
             }),

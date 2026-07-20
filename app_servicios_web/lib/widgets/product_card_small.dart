@@ -24,8 +24,18 @@ class ProductCardSmall extends StatelessWidget {
           children: [
             ClipRRect(
               borderRadius: BorderRadius.circular(8),
-              // TODO: API -> Image.network(articulo.imagenUrl)
-              child: Container(width: 60, height: 60, color: Colors.grey[300]),
+              child: SizedBox(
+                width: 60,
+                height: 60,
+                child: articulo.imagenUrl.startsWith('http')
+                    ? Image.network(
+                        articulo.imagenUrl,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) =>
+                            Container(color: Colors.grey[300]),
+                      )
+                    : Container(color: Colors.grey[300]),
+              ),
             ),
             const SizedBox(width: 12),
             Expanded(

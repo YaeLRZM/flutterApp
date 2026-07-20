@@ -45,10 +45,16 @@ class CategoryProductCard extends StatelessWidget {
               flex: 5,
               child: Stack(
                 children: [
-                  Container(
-                    width: double.infinity,
-                    // TODO: API -> Image.network(articulo.imagenUrl)
-                    decoration: const BoxDecoration(color: Colors.grey),
+                  Positioned.fill(
+                    child: articulo.imagenUrl.startsWith('http')
+                        ? Image.network(
+                            articulo.imagenUrl,
+                            fit: BoxFit.cover,
+                            width: double.infinity,
+                            errorBuilder: (_, __, ___) =>
+                                Container(color: Colors.grey.shade300),
+                          )
+                        : Container(color: Colors.grey.shade300),
                   ),
                   if (articulo.tieneDescuento)
                     Positioned(

@@ -31,11 +31,17 @@ class ProductCardLarge extends StatelessWidget {
           children: [
             Stack(
               children: [
-                Container(
+                SizedBox(
                   height: 280,
                   width: double.infinity,
-                  // TODO: API -> Image.network(articulo.imagenUrl)
-                  color: Colors.grey.shade300,
+                  child: articulo.imagenUrl.startsWith('http')
+                      ? Image.network(
+                          articulo.imagenUrl,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) =>
+                              Container(color: Colors.grey.shade300),
+                        )
+                      : Container(color: Colors.grey.shade300),
                 ),
                 if (articulo.vendidos >= 100)
                   Positioned(

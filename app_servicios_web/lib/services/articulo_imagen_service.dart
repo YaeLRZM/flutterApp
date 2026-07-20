@@ -1,21 +1,55 @@
+import 'dart:convert';
+
+import 'package:http/http.dart' as http;
+
 import '../config/data_config.dart';
+import 'api_service.dart';
 
 class ArticuloImagenService {
-  /// Regresa la lista de URLs de imágenes de un artículo para la galería
-  /// de detalle. Mientras no exista la tabla real, se generan 4
-  /// identificadores falsos por artículo (los widgets solo pintan un
-  /// contenedor gris al ver que empiezan con "mock://").
-  ///
-  /// TODO: API -> GET /api/articulos/{id}/imagenes
-  /// (probablemente una tabla `articulo_imagenes` con `orden`).
+  /// URLs de galería del detalle. Con catálogo real: `GET /api/articulos/{id}`.
+  bool get _useApi => kUseRealArticulosApi || !kUseMockData;
+
   Future<List<String>> fetchImagenesPorArticulo(int articuloId) async {
-    if (kUseMockData) {
+    if (!_useApi) {
+      // FALLBACK mock aislado
       await Future.delayed(const Duration(milliseconds: 150));
       return List.generate(4, (i) => 'mock://articulo_${articuloId}_img_$i');
     }
 
-    throw UnimplementedError(
-      'Conectar ArticuloImagenService.fetchImagenesPorArticulo() a la API de Laravel',
+    final response = await http.get(
+      Uri.parse('${ApiService.baseUrl}/articulos/$articuloId'),
+      headers: const {'Accept': 'application/json'},
     );
+    if (response.statusCode == 404) return const [];
+    if (response.statusCode != 200) {
+      throw Exception(
+        'Error al cargar imágenes del artículo $articuloId (${response.statusCode})',
+      );
+    }
+
+    final decoded = jsonDecode(response.body);
+    Map<String, dynamic>? map;
+    if (decoded is Map && decoded['data'] is Map) {
+      map = Map<String, dynamic>.from(decoded['data'] as Map);
+    } else if (decoded is Map) {
+      map = Map<String, dynamic>.from(decoded);
+    }
+    if (map == null) return const [];
+
+    final imagenes = map['imagenes'];
+    if (imagenes is! List || imagenes.isEmpty) {
+      final flat = map['imagen_url']?.toString();
+      if (flat != null && flat.isNotEmpty) return [flat];
+      return const [];
+    }
+
+    final urls = <String>[];
+    for (final raw in imagenes) {
+      if (raw is Map && raw['url'] != null) {
+        final u = raw['url'].toString();
+        if (u.isNotEmpty) urls.add(u);
+      }
+    }
+    return urls;
   }
 }
