@@ -350,7 +350,7 @@ class _TiendaViewState extends State<TiendaView> {
           const SizedBox(height: 10),
           Text(
             _descripcion ??
-                'Aún no hay descripción para esta tienda. Podrás editarla en un próximo paso.',
+                'Aún no hay descripción para esta tienda. Usa «Editar tienda» para agregar una.',
             style: TextStyle(
               fontSize: 14,
               height: 1.5,
@@ -372,7 +372,6 @@ class _TiendaViewState extends State<TiendaView> {
                   'Estatus · $_estatusVendedor',
                   colorBugambilia,
                 ),
-              _buildChip('Oaxaca · textiles', const Color(0xFFf59e0b)),
             ],
           ),
         ],

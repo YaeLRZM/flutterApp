@@ -1,207 +1,241 @@
 import 'package:flutter/material.dart';
 
-class HomeViewVendedor extends StatelessWidget {
+import '../../../services/api_service.dart';
+import '../../../services/articulo_service.dart';
+
+/// Panel de vendedor: solo datos reales (me + conteo de productos).
+/// Sin métricas de ventas inventadas ni gráficos mock.
+class HomeViewVendedor extends StatefulWidget {
   const HomeViewVendedor({super.key});
 
   @override
+  State<HomeViewVendedor> createState() => _HomeViewVendedorState();
+}
+
+class _HomeViewVendedorState extends State<HomeViewVendedor> {
+  static const Color primaryColor = Color(0xFFD81B60);
+  static const Color secondaryText = Color(0xFF5E6668);
+
+  final _articuloService = ArticuloService();
+
+  bool _loading = true;
+  String? _error;
+  String _userNombre = 'Vendedor';
+  String _tiendaNombre = 'Mi tienda';
+  int _totalProductos = 0;
+  int _publicados = 0;
+  int _ocultos = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _cargar();
+  }
+
+  Future<void> _cargar() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+
+    try {
+      final me = await ApiService().fetchMe();
+      if (me['success'] != true || me['user'] is! Map) {
+        throw Exception(
+          me['message']?.toString() ?? 'No se pudo cargar la sesión',
+        );
+      }
+
+      final user = Map<String, dynamic>.from(me['user'] as Map);
+      final nombre = user['nombre']?.toString().trim();
+      final vendedorRaw = user['vendedor'];
+      String tiendaNombre = 'Mi tienda';
+      int tiendaId = 0;
+
+      if (vendedorRaw is Map) {
+        final vendedor = Map<String, dynamic>.from(vendedorRaw);
+        final tiendaRaw = vendedor['tienda'];
+        if (tiendaRaw is Map) {
+          final tienda = Map<String, dynamic>.from(tiendaRaw);
+          final n = tienda['nombre']?.toString().trim();
+          if (n != null && n.isNotEmpty) tiendaNombre = n;
+          tiendaId = tienda['id'] is int
+              ? tienda['id'] as int
+              : int.tryParse(tienda['id']?.toString() ?? '') ?? 0;
+        }
+      }
+
+      var total = 0;
+      var publicados = 0;
+      if (tiendaId > 0) {
+        final productos = await _articuloService.fetchArticulosPorTienda(
+          tiendaId,
+          limit: 100,
+        );
+        total = productos.length;
+        publicados = productos.where((p) => p.disponible).length;
+      }
+
+      if (!mounted) return;
+      setState(() {
+        _userNombre =
+            (nombre == null || nombre.isEmpty) ? 'Vendedor' : nombre;
+        _tiendaNombre = tiendaNombre;
+        _totalProductos = total;
+        _publicados = publicados;
+        _ocultos = total - publicados;
+        _loading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = e.toString().replaceFirst('Exception: ', '');
+        _loading = false;
+      });
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(20.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // HEADER
-          const Text(
-            '¡Hola, Ixé Vendedor!',
-            style: TextStyle(
-              fontSize: 28,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF1A1A1A),
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            'Tu tienda ha crecido un 12% esta semana.\nRevisa tus pedidos pendientes.',
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.grey[800],
-              height: 1.4,
-            ),
-          ),
-          const SizedBox(height: 24),
+    if (_loading) {
+      return const Center(child: CircularProgressIndicator());
+    }
 
-          // TARJETAS DE ESTADÍSTICAS
-          _buildStatCard(
-            title: 'VENTAS DIARIAS',
-            value: '\$4,250',
-            subtitleWidget: Row(
-              children: const [
-                Icon(Icons.arrow_upward, color: Color(0xFF2ECC71), size: 14),
-                SizedBox(width: 4),
-                Text('+15% hoy', style: TextStyle(color: Color(0xFF2ECC71), fontWeight: FontWeight.w600)),
-              ],
-            ),
-            icon: Icons.trending_up,
-            iconBg: const Color(0xFFF3E5F5),
-            iconColor: const Color(0xFF8E24AA),
-          ),
-          const SizedBox(height: 16),
-
-          _buildStatCard(
-            title: 'PEDIDOS ACTIVOS',
-            value: '18',
-            subtitle: '8 listos para enviar',
-            icon: Icons.local_shipping_outlined,
-            iconBg: const Color(0xFFFFF3E0),
-            iconColor: const Color(0xFFF57C00),
-          ),
-          const SizedBox(height: 16),
-
-          _buildStatCard(
-            title: 'VISITAS',
-            value: '1,240',
-            subtitle: 'Alcance en Ciudad de México',
-            icon: Icons.visibility_outlined,
-            iconBg: const Color(0xFFECEFF1),
-            iconColor: const Color(0xFF546E7A),
-          ),
-          const SizedBox(height: 24),
-
-          // SECCIÓN DE GRÁFICA
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text(
-                      'Crecimiento\nde Ventas',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        height: 1.2,
-                      ),
-                    ),
-                    Row(
-                      children: [
-                        // BOTÓN "SEMANA" CON EL COLOR SOLICITADO
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFD81B60),
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: const Text(
-                            'Semana',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w600,
-                              fontSize: 13,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        const Text(
-                          'Mes',
-                          style: TextStyle(
-                            color: Colors.black87,
-                            fontWeight: FontWeight.w500,
-                            fontSize: 13,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
+    if (_error != null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(_error!, textAlign: TextAlign.center),
+              const SizedBox(height: 12),
+              ElevatedButton(
+                onPressed: _cargar,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: primaryColor,
+                  foregroundColor: Colors.white,
                 ),
-                const SizedBox(height: 30),
-                // SIMULACIÓN DE GRÁFICA DE BARRAS
-                SizedBox(
-                  height: 150,
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      _buildBar(height: 60, isHighlighted: false), // Lun
-                      _buildBar(height: 90, isHighlighted: false), // Mar
-                      _buildBar(height: 50, isHighlighted: true), // Mié
-                      _buildBar(height: 120, isHighlighted: false), // Jue
-                      _buildBar(height: 80, isHighlighted: true), // Vie
-                      _buildBar(height: 150, isHighlighted: true), // Sáb
-                      _buildBar(height: 110, isHighlighted: true), // Dom
-                    ],
+                child: const Text('Reintentar'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return RefreshIndicator(
+      color: primaryColor,
+      onRefresh: _cargar,
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '¡Hola, $_userNombre!',
+              style: const TextStyle(
+                fontSize: 26,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF1A1A1A),
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Tienda: $_tiendaNombre',
+              style: const TextStyle(
+                fontSize: 14,
+                color: secondaryText,
+                height: 1.4,
+              ),
+            ),
+            const SizedBox(height: 4),
+            const Text(
+              'Resumen de catálogo (artículos de tu tienda). Ventas en la pestaña Mis ventas.',
+              style: TextStyle(fontSize: 13, color: secondaryText, height: 1.4),
+            ),
+            const SizedBox(height: 24),
+
+            // Métricas REALES (solo productos)
+            _buildStatCard(
+              title: 'PRODUCTOS',
+              value: '$_totalProductos',
+              subtitle: 'En tu tienda (incluye ocultos)',
+              icon: Icons.inventory_2_outlined,
+              iconBg: const Color(0xFFF3E5F5),
+              iconColor: const Color(0xFF8E24AA),
+            ),
+            const SizedBox(height: 12),
+            _buildStatCard(
+              title: 'PUBLICADOS',
+              value: '$_publicados',
+              subtitle: 'Visibles en el catálogo público',
+              icon: Icons.visibility_outlined,
+              iconBg: const Color(0xFFE8F5E9),
+              iconColor: const Color(0xFF2E7D32),
+            ),
+            const SizedBox(height: 12),
+            _buildStatCard(
+              title: 'OCULTOS',
+              value: '$_ocultos',
+              subtitle: 'No aparecen en el catálogo público',
+              icon: Icons.visibility_off_outlined,
+              iconBg: const Color(0xFFFFF3E0),
+              iconColor: const Color(0xFFF57C00),
+            ),
+            const SizedBox(height: 24),
+
+            // Módulos aún sin backend: sin números
+            _buildComingSoonCard(
+              icon: Icons.bar_chart_outlined,
+              title: 'Analítica',
+              message: 'Próxima versión: visitas y crecimiento de ventas.',
+            ),
+            const SizedBox(height: 24),
+
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: const Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Módulos listos',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 12),
-                const Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text('Lun', style: TextStyle(color: Colors.black54, fontSize: 12)),
-                    Text('Mar', style: TextStyle(color: Colors.black54, fontSize: 12)),
-                    Text('Mié', style: TextStyle(color: Colors.black54, fontSize: 12)),
-                    Text('Jue', style: TextStyle(color: Colors.black54, fontSize: 12)),
-                    Text('Vie', style: TextStyle(color: Colors.black54, fontSize: 12)),
-                    Text('Sáb', style: TextStyle(color: Colors.black54, fontSize: 12)),
-                    Text('Dom', style: TextStyle(color: Colors.black54, fontSize: 12)),
-                  ],
-                )
-              ],
-            ),
-          ),
-          const SizedBox(height: 24),
-
-          // SECCIÓN DE ENVÍOS PENDIENTES
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text(
-                      'Envíos Pendientes',
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  SizedBox(height: 8),
+                  Text(
+                    '• Mis productos — crear, editar, publicar/ocultar, imagen URL\n'
+                    '• Mi tienda — ver y editar nombre/descripción\n'
+                    '• Mis ventas — listado real por tienda',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: secondaryText,
+                      height: 1.5,
                     ),
-                    Text(
-                      'Ver todos',
-                      style: TextStyle(
-                        color: const Color(0xFFD81B60),
-                        fontWeight: FontWeight.w600,
-                        fontSize: 13,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                _buildOrderItem('Huipil de Gala', 'Orden #4421 • Juan Pérez', Icons.more_horiz),
-                _buildOrderItem('Barro Negro Jarra', 'Orden #4419 • Maria G.', Icons.more_horiz),
-                _buildOrderItem('Huaraches Premium', 'Orden #4415 • Roberto S.', Icons.check_circle_outline,
-                    iconColor: Colors.green),
-              ],
+                  ),
+                ],
+              ),
             ),
-          ),
-          const SizedBox(height: 80), // Espacio para que el FloatingActionButton no tape contenido
-        ],
+            const SizedBox(height: 80),
+          ],
+        ),
       ),
     );
   }
 
-  // WIDGET REUTILIZABLE PARA TARJETAS DE ESTADÍSTICAS
   Widget _buildStatCard({
     required String title,
     required String value,
-    String? subtitle,
-    Widget? subtitleWidget,
+    required String subtitle,
     required IconData icon,
     required Color iconBg,
     required Color iconColor,
@@ -216,35 +250,35 @@ class HomeViewVendedor extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: const TextStyle(
-                  color: Colors.black54,
-                  fontWeight: FontWeight.w600,
-                  fontSize: 12,
-                  letterSpacing: 1.2,
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    color: Colors.black54,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 12,
+                    letterSpacing: 1.2,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                value,
-                style: const TextStyle(
-                  fontSize: 32,
-                  fontWeight: FontWeight.w900,
-                  color: Color(0xFF111827),
+                const SizedBox(height: 8),
+                Text(
+                  value,
+                  style: const TextStyle(
+                    fontSize: 32,
+                    fontWeight: FontWeight.w900,
+                    color: Color(0xFF111827),
+                  ),
                 ),
-              ),
-              const SizedBox(height: 4),
-              if (subtitleWidget != null) subtitleWidget,
-              if (subtitle != null)
+                const SizedBox(height: 4),
                 Text(
                   subtitle,
                   style: const TextStyle(color: Colors.black54, fontSize: 13),
                 ),
-            ],
+              ],
+            ),
           ),
           Container(
             padding: const EdgeInsets.all(12),
@@ -259,62 +293,45 @@ class HomeViewVendedor extends StatelessWidget {
     );
   }
 
-  // WIDGET REUTILIZABLE PARA BARRAS DE LA GRÁFICA
-  Widget _buildBar({required double height, required bool isHighlighted}) {
-    return Container(
-      width: 32,
-      height: height,
-      decoration: BoxDecoration(
-        color: isHighlighted ? const Color(0xFFD81B60) : const Color(0xFFE8BAC8),
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(6)),
-      ),
-    );
-  }
-
-  // WIDGET REUTILIZABLE PARA LOS ITEMS DE ENVÍOS PENDIENTES
-  Widget _buildOrderItem(
-    String title,
-    String subtitle,
-    IconData trailingIcon, {
-    Color iconColor = Colors.orangeAccent,
+  Widget _buildComingSoonCard({
+    required IconData icon,
+    required String title,
+    required String message,
   }) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFFF4F8FA),
-        borderRadius: BorderRadius.circular(12),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE0BEC6)),
       ),
       child: Row(
         children: [
-          // Placeholder para la imagen del producto
-          Container(
-            width: 45,
-            height: 45,
-            decoration: BoxDecoration(
-              color: Colors.grey[300],
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: const Icon(Icons.image, color: Colors.white),
-          ),
-          const SizedBox(width: 16),
+          Icon(icon, color: primaryColor, size: 28),
+          const SizedBox(width: 14),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   title,
-                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 15,
+                  ),
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: 2),
                 Text(
-                  subtitle,
-                  style: const TextStyle(color: Colors.black54, fontSize: 11),
+                  message,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: secondaryText,
+                  ),
                 ),
               ],
             ),
           ),
-          Icon(trailingIcon, color: iconColor),
         ],
       ),
     );
