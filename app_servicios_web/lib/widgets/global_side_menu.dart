@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../services/api_service.dart';
 
 class GlobalSideMenu extends StatelessWidget {
   final VoidCallback onClose;
@@ -19,17 +20,20 @@ class GlobalSideMenu extends StatelessWidget {
   Widget build(BuildContext context) {
     return Align(
       alignment: Alignment.centerRight,
-      child: Container(
-        width: MediaQuery.of(context).size.width * 0.65,
-        height: double.infinity,
+      // Material (no Container+color): evita ColoredBox ancestro de los ListTile.
+      child: Material(
         color: Colors.white,
-        padding: EdgeInsets.only(
-          top: MediaQuery.of(context).padding.top + 20,
-          bottom: 20,
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+        child: SizedBox(
+          width: MediaQuery.of(context).size.width * 0.65,
+          height: double.infinity,
+          child: Padding(
+            padding: EdgeInsets.only(
+              top: MediaQuery.of(context).padding.top + 20,
+              bottom: 20,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
             // Header del perfil
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -166,6 +170,8 @@ class GlobalSideMenu extends StatelessWidget {
               ),
             ),
           ],
+            ),
+          ),
         ),
       ),
     );
@@ -204,28 +210,14 @@ class GlobalSideMenu extends StatelessWidget {
     }
   }
 
-  // Lógica real de cierre de sesión
+  // Logout real: invalida token en API (si se puede) + borra JWT local.
   Future<void> _performLogout(BuildContext context) async {
-    // ================== AQUÍ VA TU LÓGICA ==================
-    // Ejemplos:
+    await ApiService().logout();
 
-    // 1. Limpiar SharedPreferences
-    // final prefs = await SharedPreferences.getInstance();
-    // await prefs.clear();
-
-    // 2. Si usas flutter_secure_storage
-    // await secureStorage.delete(key: 'auth_token');
-
-    // 3. Si usas Provider, Riverpod, Bloc, etc.
-    // context.read<AuthProvider>().logout();
-
-    // ======================================================
-
-    // Navegar a login y eliminar todas las pantallas anteriores
     if (context.mounted) {
       Navigator.pushNamedAndRemoveUntil(
         context,
-        '/login', // Cambia esta ruta si tu login tiene otro nombre
+        '/login',
         (route) => false,
       );
     }
@@ -238,12 +230,17 @@ class GlobalSideMenu extends StatelessWidget {
     bool isSelected = false,
     String? badge,
   }) {
-    // Material propio: evita warning de ink/ListTile dentro de ColoredBox.
+    // Fondo de selección solo en Material; ListTile sin tileColor propio.
     return Material(
       color: isSelected
           ? const Color(0xFFD81B60).withOpacity(0.1)
           : Colors.transparent,
       child: ListTile(
+        // Sin selected/tileColor: el ListTile no pinta fondo (solo icon/title).
+        tileColor: Colors.transparent,
+        selectedTileColor: Colors.transparent,
+        hoverColor: Colors.transparent,
+        focusColor: Colors.transparent,
         leading: Icon(
           icon,
           color: isSelected ? const Color(0xFFD81B60) : Colors.black54,

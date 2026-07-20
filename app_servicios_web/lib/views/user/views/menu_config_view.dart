@@ -1,7 +1,19 @@
 import 'package:flutter/material.dart';
+import '../../../services/api_service.dart';
 
 class MenuConfigView extends StatelessWidget {
   const MenuConfigView({super.key});
+
+  Future<void> _logout(BuildContext context) async {
+    await ApiService().logout();
+    if (context.mounted) {
+      Navigator.pushNamedAndRemoveUntil(
+        context,
+        '/login',
+        (route) => false,
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -147,7 +159,7 @@ class MenuConfigView extends StatelessWidget {
                 width: double.infinity,
                 height: 54,
                 child: OutlinedButton.icon(
-                  onPressed: () {},
+                  onPressed: () => _logout(context),
                   icon: const Icon(Icons.logout, color: Color(0xFFD81B60)),
                   label: const Text(
                     'Cerrar Sesión',
