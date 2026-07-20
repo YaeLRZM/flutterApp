@@ -1,12 +1,124 @@
 import 'package:flutter/material.dart';
 
-class CheckoutView extends StatelessWidget {
-  const CheckoutView({super.key});
+import '../../../config/data_config.dart';
+import '../../../models/articulo.dart';
+import '../../../services/articulo_service.dart';
+import 'payment_processing_view.dart';
+
+/// Vista de Checkout. Recibe los artículos a comprar (`articuloId ->
+/// cantidad`) desde `ProductDetailView` ("Comprar ahora", un solo
+/// artículo) o desde `CartView` ("Continuar compra", el carrito
+/// completo) y arma el resumen con datos reales de `ArticuloService`,
+/// igual que hace `CartView`.
+///
+/// ```dart
+/// Navigator.push(context, MaterialPageRoute(
+///   builder: (_) => CheckoutView(items: {articulo.id: 1}),
+/// ));
+/// ```
+///
+/// TODO: API -> al presionar "Finalizar Pago" esto debería crear el
+/// pedido en el backend:
+///   POST /api/pedidos  { items: [{articulo_id, cantidad}], metodo_pago }
+/// y navegar a PaymentProcessingView mientras se espera la respuesta.
+class CheckoutView extends StatefulWidget {
+  final Map<int, int> items;
+
+  const CheckoutView({super.key, required this.items});
+
+  @override
+  State<CheckoutView> createState() => _CheckoutViewState();
+}
+
+class _CheckoutViewState extends State<CheckoutView> {
+  final _articuloService = ArticuloService();
+
+  bool _loading = true;
+  String? _error;
+  List<Articulo> _articulos = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _cargarDatos();
+  }
+
+  Future<void> _cargarDatos() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+
+    try {
+      final articulos = await _articuloService.fetchArticulosPorIds(
+        widget.items.keys,
+      );
+      if (!mounted) return;
+      setState(() {
+        _articulos = articulos;
+        _loading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = 'No se pudo cargar el resumen de compra: $e';
+        _loading = false;
+      });
+    }
+  }
+
+  int _cantidadDe(int articuloId) => widget.items[articuloId] ?? 0;
+
+  // --- Cálculos del resumen (mismas reglas que CartView) ---
+
+  double get _subtotal {
+    double total = 0;
+    for (final a in _articulos) {
+      total += a.precio * _cantidadDe(a.id);
+    }
+    return total;
+  }
+
+  double get _descuentoArtesanal {
+    double total = 0;
+    for (final a in _articulos) {
+      if (!a.tieneDescuento) continue;
+      total += (a.precio - a.precioFinal) * _cantidadDe(a.id);
+    }
+    return total;
+  }
+
+  double get _costoEnvio {
+    if (_articulos.isEmpty) return 0;
+    final subtotalConDescuento = _subtotal - _descuentoArtesanal;
+    return subtotalConDescuento >= kEnvioGratisDesde ? 0 : kCostoEnvioNacional;
+  }
+
+  double get _total => _subtotal - _descuentoArtesanal + _costoEnvio;
+
+  int get _totalArticulos =>
+      _articulos.fold<int>(0, (acc, a) => acc + _cantidadDe(a.id));
+
+  void _finalizarPago() {
+    // TODO: API -> antes de navegar, hacer POST /api/pedidos con
+    // widget.items y el método de pago seleccionado; usar el pedidoId
+    // real que regrese el backend en vez de simular el resultado
+    // dentro de PaymentProcessingView.
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => PaymentProcessingView(
+          items: widget.items,
+          total: _total,
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F5F2), // Fondo principal
+      backgroundColor: const Color(0xFFF8F5F2),
       appBar: AppBar(
         backgroundColor: const Color(0xFFF8F5F2),
         elevation: 0,
@@ -15,19 +127,46 @@ class CheckoutView extends StatelessWidget {
           onPressed: () => Navigator.pop(context),
         ),
       ),
-      body: ListView(
-        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-        children: [
-          _buildHeader(),
-          const SizedBox(height: 24),
-          _buildItemsSummary(),
-          const SizedBox(height: 24),
-          _buildPaymentMethods(),
-          const SizedBox(height: 24),
-          _buildOrderTotals(),
-          const SizedBox(height: 40), // Espacio final
-        ],
-      ),
+      body: _buildBody(),
+    );
+  }
+
+  Widget _buildBody() {
+    if (_loading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_error != null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(_error!, textAlign: TextAlign.center),
+              const SizedBox(height: 12),
+              ElevatedButton(
+                onPressed: _cargarDatos,
+                child: const Text('Reintentar'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return ListView(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+      children: [
+        _buildHeader(),
+        const SizedBox(height: 24),
+        _buildItemsSummary(),
+        const SizedBox(height: 24),
+        _buildPaymentMethods(),
+        const SizedBox(height: 24),
+        _buildOrderTotals(),
+        const SizedBox(height: 40),
+      ],
     );
   }
 
@@ -93,10 +232,10 @@ class CheckoutView extends StatelessWidget {
                   color: const Color(0xFFD81B60).withOpacity(0.15),
                   borderRadius: BorderRadius.circular(20),
                 ),
-                child: const Text(
-                  '3\nArtículos',
+                child: Text(
+                  '$_totalArticulos\nArtículos',
                   textAlign: TextAlign.center,
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w900,
                     color: Color(0xFFD81B60),
@@ -107,44 +246,26 @@ class CheckoutView extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 24),
-          _buildSummaryItem(
-            imageColor: Colors.pink[100],
-            title: 'Huipil Gala',
-            subtitle: 'OAXACA TRADICIONAL',
-            price: '\$3,800.00',
-          ),
-          const SizedBox(height: 16),
-          _buildSummaryItem(
-            imageColor: Colors.brown[200],
-            title: 'Bolso Tehuantepec',
-            subtitle: 'PIEL Y TELAR',
-            price: '\$1,950.00',
-          ),
-          const SizedBox(height: 16),
-          _buildSummaryItem(
-            imageColor: Colors.grey[300],
-            title: 'Pendientes Filigrana',
-            subtitle: 'PLATA .925',
-            price: '\$690.00',
-          ),
+          for (final articulo in _articulos) ...[
+            _buildSummaryItem(articulo, _cantidadDe(articulo.id)),
+            const SizedBox(height: 16),
+          ],
         ],
       ),
     );
   }
 
-  Widget _buildSummaryItem({
-    required Color? imageColor,
-    required String title,
-    required String subtitle,
-    required String price,
-  }) {
+  Widget _buildSummaryItem(Articulo articulo, int cantidad) {
+    final subtotalItem = articulo.precioFinal * cantidad;
+
     return Row(
       children: [
         Container(
           width: 50,
           height: 50,
           decoration: BoxDecoration(
-            color: imageColor,
+            // TODO: API -> Image.network(articulo.imagenUrl)
+            color: Colors.grey[300],
             borderRadius: BorderRadius.circular(12),
           ),
         ),
@@ -154,7 +275,7 @@ class CheckoutView extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                title,
+                articulo.nombre,
                 style: const TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
@@ -163,7 +284,9 @@ class CheckoutView extends StatelessWidget {
               ),
               const SizedBox(height: 2),
               Text(
-                subtitle,
+                cantidad > 1
+                    ? '${articulo.categoriaNombre.toUpperCase()} • x$cantidad'
+                    : articulo.categoriaNombre.toUpperCase(),
                 style: const TextStyle(
                   fontSize: 10,
                   fontWeight: FontWeight.bold,
@@ -174,7 +297,7 @@ class CheckoutView extends StatelessWidget {
           ),
         ),
         Text(
-          price,
+          '\$${subtotalItem.toStringAsFixed(2)}',
           style: const TextStyle(
             fontSize: 13,
             fontWeight: FontWeight.w900,
@@ -186,6 +309,9 @@ class CheckoutView extends StatelessWidget {
   }
 
   // --- 3. Métodos de Pago ---
+  // TODO: API -> hoy son estáticos; cuando exista el endpoint de
+  // métodos de pago guardados (GET /api/metodos-pago) esto debe volverse
+  // dinámico y permitir seleccionar cuál usar en _finalizarPago().
   Widget _buildPaymentMethods() {
     return Container(
       padding: const EdgeInsets.all(20),
@@ -346,9 +472,23 @@ class CheckoutView extends StatelessWidget {
           ),
           const SizedBox(height: 20),
 
-          _buildTotalRow('Subtotal', '\$6,440.00'),
+          _buildTotalRow('Subtotal', '\$${_subtotal.toStringAsFixed(2)}'),
           const SizedBox(height: 12),
-          _buildTotalRow('Envío Asegurado', 'GRATIS', isFree: true),
+          _buildTotalRow(
+            'Envío Asegurado',
+            _costoEnvio == 0
+                ? 'GRATIS'
+                : '\$${_costoEnvio.toStringAsFixed(2)}',
+            isFree: _costoEnvio == 0,
+          ),
+          if (_descuentoArtesanal > 0) ...[
+            const SizedBox(height: 12),
+            _buildTotalRow(
+              'Descuento Artesanal',
+              '-\$${_descuentoArtesanal.toStringAsFixed(2)}',
+              isFree: true,
+            ),
+          ],
           const SizedBox(height: 12),
           _buildTotalRow('Impuestos (IVA)', 'Incluido'),
 
@@ -367,17 +507,17 @@ class CheckoutView extends StatelessWidget {
               ),
               Row(
                 crossAxisAlignment: CrossAxisAlignment.end,
-                children: const [
+                children: [
                   Text(
-                    '\$6,440.00',
-                    style: TextStyle(
+                    '\$${_total.toStringAsFixed(2)}',
+                    style: const TextStyle(
                       fontSize: 24,
                       fontWeight: FontWeight.w900,
                       color: Color(0xFFD81B60),
                     ),
                   ),
-                  SizedBox(width: 4),
-                  Padding(
+                  const SizedBox(width: 4),
+                  const Padding(
                     padding: EdgeInsets.only(bottom: 3),
                     child: Text(
                       'MXN',
@@ -425,7 +565,7 @@ class CheckoutView extends StatelessWidget {
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
-              onPressed: () {},
+              onPressed: _finalizarPago,
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFFD81B60),
                 padding: const EdgeInsets.symmetric(vertical: 18),

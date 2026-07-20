@@ -1,7 +1,37 @@
 import 'package:flutter/material.dart';
 
+import 'compra_exitosa_view.dart';
+
+/// Vista de "pago exitoso". Recibe los artículos y el total que vienen
+/// de `PaymentProcessingView` para tenerlos disponibles cuando se arme
+/// el pedido real contra la API.
+///
+/// TODO: API -> `items`/`total` hoy solo se reciben y se reenvían; en
+/// cuanto exista GET /api/pedidos/{id} esta vista debería mostrar el
+/// número de orden y el resumen reales en vez de los valores de muestra.
 class PaymentSuccessView extends StatelessWidget {
-  const PaymentSuccessView({super.key});
+  final Map<int, int> items;
+  final double total;
+
+  const PaymentSuccessView({
+    super.key,
+    required this.items,
+    required this.total,
+  });
+
+  void _continuar(BuildContext context) {
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (_) => CompraExitosaView(items: items),
+      ),
+    );
+  }
+
+  void _descargarComprobante() {
+    // TODO: API -> generar/descargar el comprobante real (PDF) del
+    // pedido una vez que exista el endpoint correspondiente.
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -99,10 +129,12 @@ class PaymentSuccessView extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 20),
-                    const Text(
-                      'Tu pedido ha sido procesado exitosamente y pronto comenzaremos la preparación de tus piezas artesanales.',
+                    Text(
+                      'Tu pedido de \$${total.toStringAsFixed(2)} MXN ha sido '
+                      'procesado exitosamente y pronto comenzaremos la '
+                      'preparación de tus piezas artesanales.',
                       textAlign: TextAlign.center,
-                      style: TextStyle(
+                      style: const TextStyle(
                         fontSize: 12,
                         color: Colors.black45,
                         height: 1.5,
@@ -113,11 +145,11 @@ class PaymentSuccessView extends StatelessWidget {
               ),
               const Spacer(),
 
-              // Botones de acción
+              // Botón de acción
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: () {},
+                  onPressed: () => _continuar(context),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFFD81B60),
                     padding: const EdgeInsets.symmetric(vertical: 16),
@@ -127,34 +159,9 @@ class PaymentSuccessView extends StatelessWidget {
                     elevation: 0,
                   ),
                   child: const Text(
-                    'Ver mis pedidos',
+                    'Continuar',
                     style: TextStyle(
                       color: Colors.white,
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 12),
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton(
-                  onPressed: () {},
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    side: const BorderSide(
-                      color: Color(0xFFD81B60),
-                      width: 1.2,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(24),
-                    ),
-                  ),
-                  child: const Text(
-                    'Volver al inicio',
-                    style: TextStyle(
-                      color: Color(0xFFD81B60),
                       fontSize: 14,
                       fontWeight: FontWeight.bold,
                     ),
@@ -165,7 +172,7 @@ class PaymentSuccessView extends StatelessWidget {
 
               // Descargar comprobante
               TextButton.icon(
-                onPressed: () {},
+                onPressed: _descargarComprobante,
                 icon: const Icon(
                   Icons.download_outlined,
                   size: 16,

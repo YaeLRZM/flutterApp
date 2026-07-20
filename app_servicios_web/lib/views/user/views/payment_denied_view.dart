@@ -1,7 +1,22 @@
 import 'package:flutter/material.dart';
 
+import 'checkout_view.dart';
+
+/// Vista de "pago denegado". Recibe los artículos (`articuloId ->
+/// cantidad`) que se intentaron comprar para poder regresar a
+/// `CheckoutView` con el mismo pedido si el usuario reintenta o cambia
+/// de método de pago.
 class PaymentDeniedView extends StatelessWidget {
-  const PaymentDeniedView({super.key});
+  final Map<int, int> items;
+
+  const PaymentDeniedView({super.key, required this.items});
+
+  void _volverACheckout(BuildContext context) {
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (_) => CheckoutView(items: items)),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -99,7 +114,7 @@ class PaymentDeniedView extends StatelessWidget {
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton.icon(
-                      onPressed: () {},
+                      onPressed: () => _volverACheckout(context),
                       icon: const Icon(
                         Icons.refresh,
                         color: Colors.white,
@@ -127,7 +142,7 @@ class PaymentDeniedView extends StatelessWidget {
                   SizedBox(
                     width: double.infinity,
                     child: OutlinedButton.icon(
-                      onPressed: () {},
+                      onPressed: () => _volverACheckout(context),
                       icon: const Icon(
                         Icons.credit_card,
                         color: Color(0xFFD81B60),

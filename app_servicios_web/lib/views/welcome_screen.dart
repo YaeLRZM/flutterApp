@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../config/data_config.dart';
 import 'auth/login_screen.dart';
+import 'user/user_layout.dart';
 
 class WelcomeScreen extends StatefulWidget {
   const WelcomeScreen({super.key});
@@ -165,6 +167,32 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                             ),
                           ),
                         ),
+
+                        // Acceso rápido de desarrollo: entra sin login
+                        // mientras se trabaja con datos mock (kUseMockData).
+                        // TODO: quitar este botón antes de conectar la API real.
+                        if (kUseMockData) ...[
+                          const SizedBox(height: 12),
+                          TextButton(
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => const UserLayout(),
+                                ),
+                              );
+                            },
+                            child: Text(
+                              'Entrar sin login (modo prueba)',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                letterSpacing: 0.5,
+                                color: Colors.white.withOpacity(0.7),
+                              ),
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                   ),

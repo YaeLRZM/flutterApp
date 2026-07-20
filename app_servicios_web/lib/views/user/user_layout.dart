@@ -18,7 +18,12 @@ import 'views/formas_de_pago_view.dart';
 import 'views/menu_config_view.dart'; // <-- Agregamos la vista de configuración
 
 class UserLayout extends StatefulWidget {
-  const UserLayout({super.key});
+  /// Página con la que arranca el layout (ej. 'mis_compras' para
+  /// llegar directo desde `CompraExitosaView` → "Ver pedidos"). Por
+  /// default arranca en 'home'.
+  final String initialPage;
+
+  const UserLayout({super.key, this.initialPage = 'home'});
 
   @override
   State<UserLayout> createState() => _UserLayoutState();
@@ -28,7 +33,7 @@ class _UserLayoutState extends State<UserLayout> {
   bool _isDrawerOpen = false;
 
   // Usamos un String para saber exactamente qué página mostrar
-  String _activePage = 'home';
+  late String _activePage = widget.initialPage;
 
   void _toggleDrawer() {
     setState(() {

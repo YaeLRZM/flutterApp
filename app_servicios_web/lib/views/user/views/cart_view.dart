@@ -4,6 +4,7 @@ import '../../../config/data_config.dart';
 import '../../../models/articulo.dart';
 import '../../../services/articulo_service.dart';
 import '../../../services/carrito_service.dart';
+import 'checkout_view.dart';
 import 'product_detail_view.dart';
 
 /// Vista de Carrito. Las cantidades viven en `CarritoService`
@@ -81,10 +82,11 @@ class _CartViewState extends State<CartView> {
   }
 
   void _continuarCompra() {
-    // TODO: API -> iniciar checkout: POST /api/pedidos con el contenido
-    // actual de CarritoService.
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Aquí iniciará el flujo de pago')),
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => CheckoutView(items: CarritoService.instance.cantidades),
+      ),
     );
   }
 

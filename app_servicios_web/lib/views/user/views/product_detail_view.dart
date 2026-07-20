@@ -11,6 +11,7 @@ import '../../../services/favoritos_service.dart';
 import '../../../services/resena_service.dart';
 import '../../../widgets/product_grid_item.dart';
 import '../../../widgets/product_image_gallery.dart';
+import 'checkout_view.dart';
 
 /// Vista de detalle de un artículo. Se navega a ella pasando el
 /// `articuloId` (ej. al tocar una tarjeta en el Home):
@@ -130,9 +131,13 @@ class _ProductDetailViewState extends State<ProductDetailView> {
   }
 
   void _comprarAhora() {
-    // TODO: API -> iniciar flujo de checkout / carrito con este artículo.
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Aquí iniciará el flujo de compra')),
+    final articulo = _articulo;
+    if (articulo == null) return;
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => CheckoutView(items: {articulo.id: 1}),
+      ),
     );
   }
 
