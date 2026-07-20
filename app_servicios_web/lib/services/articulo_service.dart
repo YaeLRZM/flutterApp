@@ -196,9 +196,45 @@ class ArticuloService {
     }
 
     final list = await _getArticulos(
-      query: {'tienda': tiendaId.toString()},
+      query: {
+        'tienda': tiendaId.toString(),
+        // Mis productos del vendedor: incluir ocultos (disponible=false).
+        'incluir_no_disponibles': '1',
+      },
     );
     return list.where((a) => a.id != excludeId).take(limit).toList();
+  }
+
+  /// Actualiza campos de un artículo (JWT + ownership en Laravel).
+  /// PUT /api/articulos/{id}
+  Future<Articulo> updateArticulo(
+    int id,
+    Map<String, dynamic> fields,
+  ) async {
+    final headers = await ApiService().getAuthHeaders();
+    final response = await http.put(
+      Uri.parse('${ApiService.baseUrl}/articulos/$id'),
+      headers: headers,
+      body: jsonEncode(fields),
+    );
+
+    if (response.statusCode == 403) {
+      throw Exception('No tienes permiso para editar este producto.');
+    }
+    if (response.statusCode == 422) {
+      throw Exception('Datos inválidos. Revisa el formulario.');
+    }
+    if (response.statusCode != 200) {
+      throw Exception(
+        'Error al actualizar producto (${response.statusCode})',
+      );
+    }
+
+    final parsed = _parseOne(response.body);
+    if (parsed == null) {
+      throw Exception('Respuesta de actualización inválida');
+    }
+    return parsed;
   }
 
   /// Conteo por categoría (Colecciones).

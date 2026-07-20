@@ -14,6 +14,10 @@ class Articulo {
   final String? descripcion;
   final double precio;
   final int stock;
+
+  /// Disponibilidad comercial del vendedor (API: `disponible`).
+  final bool disponible;
+
   final String talla;
   final String color;
   final String bordado;
@@ -40,6 +44,7 @@ class Articulo {
     this.descripcion,
     required this.precio,
     required this.stock,
+    this.disponible = true,
     required this.talla,
     required this.color,
     required this.bordado,
@@ -138,6 +143,11 @@ class Articulo {
       descripcion: descripcion,
       precio: _asDouble(json['precio']),
       stock: _asInt(json['stock']),
+      disponible: json['disponible'] == null
+          ? true
+          : json['disponible'] == true ||
+              json['disponible'] == 1 ||
+              json['disponible']?.toString() == '1',
       talla: json['talla']?.toString() ?? '',
       color: json['color']?.toString() ?? '',
       bordado: json['bordado']?.toString() ?? '',
