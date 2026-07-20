@@ -14,6 +14,14 @@ DateTime? _asDate(dynamic v) {
   return DateTime.tryParse(v.toString());
 }
 
+String? _nestedNombre(Map<String, dynamic> json, String key) {
+  final raw = json[key];
+  if (raw is! Map) return null;
+  final n = raw['nombre']?.toString().trim();
+  if (n == null || n.isEmpty) return null;
+  return n;
+}
+
 /// Línea de detalle de venta (campos reales de `detalle_ventas`).
 class DetalleVentaLinea {
   final int id;
@@ -22,12 +30,16 @@ class DetalleVentaLinea {
   final double precioUnitario;
   final double subtotal;
 
+  /// Nombre real del artículo si el backend lo envía en `articulo.nombre`.
+  final String? articuloNombre;
+
   const DetalleVentaLinea({
     required this.id,
     required this.articuloId,
     required this.cantidad,
     required this.precioUnitario,
     required this.subtotal,
+    this.articuloNombre,
   });
 
   factory DetalleVentaLinea.fromJson(Map<String, dynamic> json) {
@@ -39,11 +51,16 @@ class DetalleVentaLinea {
         json['precio_unitario'] ?? json['precio'],
       ),
       subtotal: _asDouble(json['subtotal']),
+      articuloNombre: _nestedNombre(json, 'articulo'),
     );
   }
 
-  /// Sin join de nombre en backend: etiqueta neutra.
-  String get etiquetaArticulo => 'Artículo #$articuloId';
+  /// Nombre del backend si existe; si no, fallback neutro.
+  String get etiquetaArticulo {
+    final n = articuloNombre?.trim();
+    if (n != null && n.isNotEmpty) return n;
+    return 'Artículo #$articuloId';
+  }
 }
 
 class Venta {
@@ -57,6 +74,12 @@ class Venta {
   final int detalleCount;
   final List<DetalleVentaLinea> lineas;
 
+  /// `user.nombre` si el backend lo envía en el show.
+  final String? userNombre;
+
+  /// `forma_pago.nombre` si el backend lo envía en el show.
+  final String? formaPagoNombre;
+
   const Venta({
     required this.id,
     required this.userId,
@@ -67,6 +90,8 @@ class Venta {
     this.createdAt,
     this.detalleCount = 0,
     this.lineas = const [],
+    this.userNombre,
+    this.formaPagoNombre,
   });
 
   factory Venta.fromJson(Map<String, dynamic> json) {
@@ -97,7 +122,25 @@ class Venta {
             (lineas.isNotEmpty ? lineas.length : 0),
       ),
       lineas: lineas,
+      userNombre: _nestedNombre(json, 'user'),
+      formaPagoNombre: _nestedNombre(json, 'forma_pago'),
     );
+  }
+
+  String get etiquetaCliente {
+    final n = userNombre?.trim();
+    if (n != null && n.isNotEmpty) return n;
+    if (userId > 0) return 'Usuario #$userId';
+    return 'No disponible';
+  }
+
+  String get etiquetaFormaPago {
+    final n = formaPagoNombre?.trim();
+    if (n != null && n.isNotEmpty) return n;
+    if (formaPagoId != null && formaPagoId! > 0) {
+      return 'Forma de pago #$formaPagoId';
+    }
+    return 'No disponible';
   }
 }
 

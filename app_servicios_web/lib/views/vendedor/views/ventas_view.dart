@@ -506,6 +506,9 @@ class _VentaDetalleSheetState extends State<_VentaDetalleSheet> {
         _row('estado', estado),
         _row('total', _fmtMoney(v.total)),
         _row('created_at', _fmtDate(v.createdAt)),
+        // Nombres solo si el backend los envió; si no, fallback #id.
+        _row('cliente', v.etiquetaCliente),
+        _row('forma_pago', v.etiquetaFormaPago),
         const SizedBox(height: 16),
         const Text(
           'detalle_ventas',
@@ -543,6 +546,7 @@ class _VentaDetalleSheetState extends State<_VentaDetalleSheet> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
+            // Nombre real o "Artículo #id" — nunca inventado.
             line.etiquetaArticulo,
             style: const TextStyle(
               fontWeight: FontWeight.w700,
