@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 
 import '../../../models/articulo.dart';
+import '../../../models/categoria.dart';
 import '../../../services/api_service.dart';
 import '../../../services/articulo_service.dart';
+import '../../../services/categoria_service.dart';
 import '../../user/views/product_detail_view.dart';
 
 /// Mis productos del vendedor: listado real + detalle + toggle disponible + edición mínima.
@@ -148,6 +150,40 @@ class _ProductosViewState extends State<ProductosView> {
     }
   }
 
+  Future<void> _abrirCreacion() async {
+    final messenger = ScaffoldMessenger.maybeOf(context);
+
+    final created = await showModalBottomSheet<Articulo>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: const Color(0xFFFFF8F6),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (sheetContext) {
+        final inset = MediaQuery.viewInsetsOf(sheetContext).bottom;
+        return Padding(
+          padding: EdgeInsets.only(bottom: inset),
+          child: _CrearProductoSheet(articuloService: _articuloService),
+        );
+      },
+    );
+
+    if (!mounted || created == null) return;
+
+    setState(() {
+      _productos = [created, ..._productos];
+    });
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      messenger?.showSnackBar(
+        const SnackBar(content: Text('Producto creado')),
+      );
+    });
+  }
+
   Future<void> _abrirEdicion(Articulo a) async {
     // Capturar messenger del padre ANTES del modal (context estable).
     final messenger = ScaffoldMessenger.maybeOf(context);
@@ -287,6 +323,29 @@ class _ProductosViewState extends State<ProductosView> {
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(30),
                   borderSide: const BorderSide(color: outlineVariant),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: _abrirCreacion,
+                icon: const Icon(Icons.add, color: Colors.white),
+                label: const Text(
+                  'Nuevo producto',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    color: Colors.white,
+                  ),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: primaryColor,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(30),
+                  ),
                 ),
               ),
             ),
@@ -597,6 +656,7 @@ class _EditarProductoSheetState extends State<_EditarProductoSheet> {
   late final TextEditingController _colorCtrl;
   late final TextEditingController _telaCtrl;
   late final TextEditingController _bordadoCtrl;
+  late final TextEditingController _imagenUrlCtrl;
   bool _saving = false;
 
   @override
@@ -609,6 +669,9 @@ class _EditarProductoSheetState extends State<_EditarProductoSheet> {
     _colorCtrl = TextEditingController(text: a.color);
     _telaCtrl = TextEditingController(text: a.tela);
     _bordadoCtrl = TextEditingController(text: a.bordado);
+    _imagenUrlCtrl = TextEditingController(
+      text: a.imagenUrl.startsWith('http') ? a.imagenUrl : '',
+    );
   }
 
   @override
@@ -619,6 +682,7 @@ class _EditarProductoSheetState extends State<_EditarProductoSheet> {
     _colorCtrl.dispose();
     _telaCtrl.dispose();
     _bordadoCtrl.dispose();
+    _imagenUrlCtrl.dispose();
     super.dispose();
   }
 
@@ -650,13 +714,29 @@ class _EditarProductoSheetState extends State<_EditarProductoSheet> {
       'tela': _telaCtrl.text.trim(),
       'bordado': _bordadoCtrl.text.trim(),
     };
+    final imagenUrl = _imagenUrlCtrl.text.trim();
 
     setState(() => _saving = true);
     try {
-      final updated = await widget.articuloService.updateArticulo(
+      var updated = await widget.articuloService.updateArticulo(
         widget.articulo.id,
         payload,
       );
+      if (imagenUrl.isNotEmpty) {
+        if (!imagenUrl.startsWith('http://') &&
+            !imagenUrl.startsWith('https://')) {
+          throw Exception('La URL de imagen debe empezar con http:// o https://');
+        }
+        await widget.articuloService.setImagenPrincipal(
+          articuloId: widget.articulo.id,
+          url: imagenUrl,
+        );
+        // Releer para traer imagenes[] actualizadas.
+        updated = await widget.articuloService.fetchArticuloPorId(
+              widget.articulo.id,
+            ) ??
+            updated;
+      }
       // Única acción al éxito: pop con resultado. NO setState después.
       if (!mounted) return;
       Navigator.of(context).pop(updated);
@@ -730,6 +810,15 @@ class _EditarProductoSheetState extends State<_EditarProductoSheet> {
           _field('Color', _colorCtrl),
           _field('Tela', _telaCtrl),
           _field('Bordado', _bordadoCtrl),
+          _ImagenUrlField(
+            label: 'URL imagen principal',
+            controller: _imagenUrlCtrl,
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'Pega una URL https de la imagen (sin subida de archivo aún).',
+            style: TextStyle(fontSize: 11, color: Colors.black45),
+          ),
           const SizedBox(height: 12),
           ElevatedButton(
             onPressed: _saving ? null : _guardar,
@@ -739,6 +828,390 @@ class _EditarProductoSheetState extends State<_EditarProductoSheet> {
               padding: const EdgeInsets.symmetric(vertical: 14),
             ),
             child: Text(_saving ? 'Guardando…' : 'Guardar cambios'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Formulario crear producto (controllers con ciclo de vida del sheet).
+class _CrearProductoSheet extends StatefulWidget {
+  final ArticuloService articuloService;
+
+  const _CrearProductoSheet({required this.articuloService});
+
+  @override
+  State<_CrearProductoSheet> createState() => _CrearProductoSheetState();
+}
+
+class _CrearProductoSheetState extends State<_CrearProductoSheet> {
+  static const Color primaryColor = Color(0xFFD81B60);
+
+  late final TextEditingController _nombreCtrl;
+  late final TextEditingController _descCtrl;
+  late final TextEditingController _precioCtrl;
+  late final TextEditingController _stockCtrl;
+  late final TextEditingController _colorCtrl;
+  late final TextEditingController _telaCtrl;
+  late final TextEditingController _bordadoCtrl;
+  late final TextEditingController _imagenUrlCtrl;
+
+  List<Categoria> _categorias = [];
+  int? _categoriaId;
+  bool _loadingCats = true;
+  bool _saving = false;
+  String? _catsError;
+
+  @override
+  void initState() {
+    super.initState();
+    _nombreCtrl = TextEditingController();
+    _descCtrl = TextEditingController();
+    _precioCtrl = TextEditingController(text: '0');
+    _stockCtrl = TextEditingController(text: '1');
+    _colorCtrl = TextEditingController(text: 'Multicolor');
+    _telaCtrl = TextEditingController(text: 'Manta');
+    _bordadoCtrl = TextEditingController(text: 'Tradicional');
+    _imagenUrlCtrl = TextEditingController();
+    _loadCategorias();
+  }
+
+  Future<void> _loadCategorias() async {
+    try {
+      final cats = await CategoriaService().fetchCategoriasColecciones();
+      if (!mounted) return;
+      setState(() {
+        _categorias = cats;
+        _categoriaId = cats.isNotEmpty ? cats.first.id : null;
+        _loadingCats = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _catsError = e.toString();
+        _loadingCats = false;
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _nombreCtrl.dispose();
+    _descCtrl.dispose();
+    _precioCtrl.dispose();
+    _stockCtrl.dispose();
+    _colorCtrl.dispose();
+    _telaCtrl.dispose();
+    _bordadoCtrl.dispose();
+    _imagenUrlCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _crear() async {
+    if (_saving || !mounted) return;
+    FocusManager.instance.primaryFocus?.unfocus();
+
+    final precio = double.tryParse(_precioCtrl.text.trim().replaceAll(',', '.'));
+    final stock = int.tryParse(_stockCtrl.text.trim());
+    if (_nombreCtrl.text.trim().isEmpty ||
+        precio == null ||
+        stock == null ||
+        _categoriaId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Completa nombre, categoría, precio y stock válidos'),
+        ),
+      );
+      return;
+    }
+
+    final imagenUrl = _imagenUrlCtrl.text.trim();
+    if (imagenUrl.isNotEmpty &&
+        !imagenUrl.startsWith('http://') &&
+        !imagenUrl.startsWith('https://')) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('La URL de imagen debe empezar con http:// o https://'),
+        ),
+      );
+      return;
+    }
+
+    final payload = <String, dynamic>{
+      'nombre': _nombreCtrl.text.trim(),
+      'descripcion': _descCtrl.text.trim(),
+      'precio': precio,
+      'stock': stock,
+      'categoria_id': _categoriaId,
+      'color': _colorCtrl.text.trim().isEmpty ? 'Multicolor' : _colorCtrl.text.trim(),
+      'tela': _telaCtrl.text.trim().isEmpty ? 'Manta' : _telaCtrl.text.trim(),
+      'bordado':
+          _bordadoCtrl.text.trim().isEmpty ? 'Tradicional' : _bordadoCtrl.text.trim(),
+      'disponible': true,
+    };
+
+    setState(() => _saving = true);
+    try {
+      var created = await widget.articuloService.createArticulo(payload);
+      if (imagenUrl.isNotEmpty) {
+        await widget.articuloService.setImagenPrincipal(
+          articuloId: created.id,
+          url: imagenUrl,
+        );
+        created = await widget.articuloService.fetchArticuloPorId(created.id) ??
+            created;
+      }
+      if (!mounted) return;
+      Navigator.of(context).pop(created);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _saving = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.toString().replaceFirst('Exception: ', '')),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  Widget _field(
+    String label,
+    TextEditingController ctrl, {
+    int maxLines = 1,
+    TextInputType? keyboard,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: TextField(
+        controller: ctrl,
+        maxLines: maxLines,
+        keyboardType: keyboard,
+        decoration: InputDecoration(
+          labelText: label,
+          filled: true,
+          fillColor: Colors.white,
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Center(
+            child: Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.black26,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          const Text(
+            'Nuevo producto',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'Se publicará en tu tienda. Puedes agregar una URL de imagen.',
+            style: TextStyle(fontSize: 12, color: Colors.black54),
+          ),
+          const SizedBox(height: 16),
+          if (_loadingCats)
+            const Padding(
+              padding: EdgeInsets.all(16),
+              child: Center(child: CircularProgressIndicator()),
+            )
+          else if (_catsError != null)
+            Text(_catsError!, style: const TextStyle(color: Colors.red))
+          else
+            Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: DropdownButtonFormField<int>(
+                value: _categoriaId,
+                decoration: InputDecoration(
+                  labelText: 'Categoría',
+                  filled: true,
+                  fillColor: Colors.white,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                items: _categorias
+                    .map(
+                      (c) => DropdownMenuItem(
+                        value: c.id,
+                        child: Text(c.nombre),
+                      ),
+                    )
+                    .toList(),
+                onChanged: (v) => setState(() => _categoriaId = v),
+              ),
+            ),
+          _field('Nombre', _nombreCtrl),
+          _field('Descripción', _descCtrl, maxLines: 3),
+          _field('Precio', _precioCtrl, keyboard: TextInputType.number),
+          _field('Stock', _stockCtrl, keyboard: TextInputType.number),
+          _field('Color', _colorCtrl),
+          _field('Tela', _telaCtrl),
+          _field('Bordado', _bordadoCtrl),
+          _ImagenUrlField(
+            label: 'URL imagen principal (opcional)',
+            controller: _imagenUrlCtrl,
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'URL https pública. Sin subida multipart todavía.',
+            style: TextStyle(fontSize: 11, color: Colors.black45),
+          ),
+          const SizedBox(height: 12),
+          ElevatedButton(
+            onPressed: (_saving || _loadingCats) ? null : _crear,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: primaryColor,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 14),
+            ),
+            child: Text(_saving ? 'Creando…' : 'Crear producto'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Campo URL + preview mínimo de imagen principal (crear/editar vendedor).
+/// No toca backend: solo UX local sobre el controller existente.
+class _ImagenUrlField extends StatefulWidget {
+  final String label;
+  final TextEditingController controller;
+
+  const _ImagenUrlField({
+    required this.label,
+    required this.controller,
+  });
+
+  @override
+  State<_ImagenUrlField> createState() => _ImagenUrlFieldState();
+}
+
+class _ImagenUrlFieldState extends State<_ImagenUrlField> {
+  void _onChanged() {
+    if (mounted) setState(() {});
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    widget.controller.addListener(_onChanged);
+  }
+
+  @override
+  void didUpdateWidget(covariant _ImagenUrlField oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.controller != widget.controller) {
+      oldWidget.controller.removeListener(_onChanged);
+      widget.controller.addListener(_onChanged);
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.controller.removeListener(_onChanged);
+    super.dispose();
+  }
+
+  bool _isHttpUrl(String value) {
+    final v = value.trim();
+    return v.startsWith('http://') || v.startsWith('https://');
+  }
+
+  Widget _placeholder(String message) {
+    return ColoredBox(
+      color: const Color(0xFFE8E8E8),
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.image_outlined, size: 36, color: Colors.black38),
+            const SizedBox(height: 6),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 12, color: Colors.black45),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final url = widget.controller.text.trim();
+    final showNetwork = _isHttpUrl(url);
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          TextField(
+            controller: widget.controller,
+            keyboardType: TextInputType.url,
+            decoration: InputDecoration(
+              labelText: widget.label,
+              filled: true,
+              fillColor: Colors.white,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: SizedBox(
+              height: 140,
+              width: double.infinity,
+              child: showNetwork
+                  ? Image.network(
+                      url,
+                      fit: BoxFit.cover,
+                      width: double.infinity,
+                      height: 140,
+                      errorBuilder: (_, __, ___) =>
+                          _placeholder('No se pudo cargar la imagen'),
+                      loadingBuilder: (context, child, progress) {
+                        if (progress == null) return child;
+                        return const ColoredBox(
+                          color: Color(0xFFE8E8E8),
+                          child: Center(
+                            child: SizedBox(
+                              width: 24,
+                              height: 24,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                          ),
+                        );
+                      },
+                    )
+                  : _placeholder(
+                      url.isEmpty
+                          ? 'Vista previa de la imagen'
+                          : 'URL debe empezar con http:// o https://',
+                    ),
+            ),
           ),
         ],
       ),

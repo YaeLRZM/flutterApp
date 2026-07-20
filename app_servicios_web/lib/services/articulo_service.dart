@@ -205,6 +205,65 @@ class ArticuloService {
     return list.where((a) => a.id != excludeId).take(limit).toList();
   }
 
+  /// Asigna/actualiza la imagen principal del artículo (URL).
+  /// POST /api/imagen-articulos
+  Future<void> setImagenPrincipal({
+    required int articuloId,
+    required String url,
+  }) async {
+    final headers = await ApiService().getAuthHeaders();
+    final response = await http.post(
+      Uri.parse('${ApiService.baseUrl}/imagen-articulos'),
+      headers: headers,
+      body: jsonEncode({
+        'articulo_id': articuloId,
+        'url': url.trim(),
+        'es_principal': true,
+      }),
+    );
+
+    if (response.statusCode == 403) {
+      throw Exception('No tienes permiso para cambiar la imagen de este producto.');
+    }
+    if (response.statusCode == 422) {
+      throw Exception('URL de imagen inválida.');
+    }
+    if (response.statusCode != 201 && response.statusCode != 200) {
+      throw Exception(
+        'Error al guardar imagen (${response.statusCode})',
+      );
+    }
+  }
+
+  /// Crea artículo del vendedor autenticado.
+  /// POST /api/articulos (tienda_id lo asigna el backend).
+  Future<Articulo> createArticulo(Map<String, dynamic> fields) async {
+    final headers = await ApiService().getAuthHeaders();
+    final response = await http.post(
+      Uri.parse('${ApiService.baseUrl}/articulos'),
+      headers: headers,
+      body: jsonEncode(fields),
+    );
+
+    if (response.statusCode == 403) {
+      throw Exception('No tienes permiso para crear productos.');
+    }
+    if (response.statusCode == 422) {
+      throw Exception('Datos inválidos. Revisa el formulario.');
+    }
+    if (response.statusCode != 201 && response.statusCode != 200) {
+      throw Exception(
+        'Error al crear producto (${response.statusCode})',
+      );
+    }
+
+    final parsed = _parseOne(response.body);
+    if (parsed == null) {
+      throw Exception('Respuesta de creación inválida');
+    }
+    return parsed;
+  }
+
   /// Actualiza campos de un artículo (JWT + ownership en Laravel).
   /// PUT /api/articulos/{id}
   Future<Articulo> updateArticulo(

@@ -26,4 +26,39 @@ class TiendaService {
     if (map == null) return null;
     return Tienda.fromJson(map);
   }
+
+  /// Actualiza la tienda del vendedor autenticado.
+  /// PUT /api/tiendas/{id} — backend exige ownership (no tiendas ajenas).
+  Future<Tienda> updateTienda(int id, Map<String, dynamic> fields) async {
+    final headers = await ApiService().getAuthHeaders();
+    final response = await http.put(
+      Uri.parse('${ApiService.baseUrl}/tiendas/$id'),
+      headers: headers,
+      body: jsonEncode(fields),
+    );
+
+    if (response.statusCode == 403) {
+      throw Exception('No tienes permiso para editar esta tienda.');
+    }
+    if (response.statusCode == 422) {
+      throw Exception('Datos inválidos. Revisa nombre y descripción.');
+    }
+    if (response.statusCode != 200) {
+      throw Exception('Error al guardar tienda (${response.statusCode})');
+    }
+
+    final decoded = jsonDecode(response.body);
+    Map<String, dynamic>? map;
+    if (decoded is Map && decoded['tienda'] is Map) {
+      map = Map<String, dynamic>.from(decoded['tienda'] as Map);
+    } else if (decoded is Map && decoded['data'] is Map) {
+      map = Map<String, dynamic>.from(decoded['data'] as Map);
+    } else if (decoded is Map) {
+      map = Map<String, dynamic>.from(decoded);
+    }
+    if (map == null) {
+      throw Exception('Respuesta de tienda inválida');
+    }
+    return Tienda.fromJson(map);
+  }
 }
