@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'chatbot_sheet.dart';
+
 class GlobalChatbotButton extends StatelessWidget {
   const GlobalChatbotButton({super.key});
 
@@ -11,10 +13,7 @@ class GlobalChatbotButton extends StatelessWidget {
       child: FloatingActionButton(
         // Añadimos un heroTag único porque Flutter marca error si hay dos FABs sin etiqueta
         heroTag: 'chatbot_btn',
-        onPressed: () {
-          // Aquí va la lógica para abrir tu chatbot
-          print("Abriendo chatbot...");
-        },
+        onPressed: () => ChatbotSheet.open(context),
         backgroundColor: const Color(0xFFD81B60), // Tu rosa bugambilia
         elevation: 6,
         shape: const CircleBorder(),
