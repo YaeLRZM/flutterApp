@@ -653,6 +653,7 @@ class _EditarProductoSheetState extends State<_EditarProductoSheet> {
   late final TextEditingController _nombreCtrl;
   late final TextEditingController _descCtrl;
   late final TextEditingController _precioCtrl;
+  late final TextEditingController _stockCtrl;
   late final TextEditingController _colorCtrl;
   late final TextEditingController _telaCtrl;
   late final TextEditingController _bordadoCtrl;
@@ -666,6 +667,7 @@ class _EditarProductoSheetState extends State<_EditarProductoSheet> {
     _nombreCtrl = TextEditingController(text: a.nombre);
     _descCtrl = TextEditingController(text: a.descripcion ?? '');
     _precioCtrl = TextEditingController(text: a.precio.toStringAsFixed(2));
+    _stockCtrl = TextEditingController(text: a.stock.toString());
     _colorCtrl = TextEditingController(text: a.color);
     _telaCtrl = TextEditingController(text: a.tela);
     _bordadoCtrl = TextEditingController(text: a.bordado);
@@ -679,6 +681,7 @@ class _EditarProductoSheetState extends State<_EditarProductoSheet> {
     _nombreCtrl.dispose();
     _descCtrl.dispose();
     _precioCtrl.dispose();
+    _stockCtrl.dispose();
     _colorCtrl.dispose();
     _telaCtrl.dispose();
     _bordadoCtrl.dispose();
@@ -695,12 +698,20 @@ class _EditarProductoSheetState extends State<_EditarProductoSheet> {
     final precio = double.tryParse(
       _precioCtrl.text.trim().replaceAll(',', '.'),
     );
-    if (_nombreCtrl.text.trim().isEmpty || precio == null) {
+    final stock = int.tryParse(_stockCtrl.text.trim());
+    if (_nombreCtrl.text.trim().isEmpty || precio == null || stock == null) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Nombre y precio válidos son obligatorios'),
+          content: Text('Nombre, precio y stock válidos son obligatorios'),
         ),
+      );
+      return;
+    }
+    if (stock < 0) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('El stock no puede ser negativo')),
       );
       return;
     }
@@ -710,6 +721,7 @@ class _EditarProductoSheetState extends State<_EditarProductoSheet> {
       'nombre': _nombreCtrl.text.trim(),
       'descripcion': _descCtrl.text.trim(),
       'precio': precio,
+      'stock': stock,
       'color': _colorCtrl.text.trim(),
       'tela': _telaCtrl.text.trim(),
       'bordado': _bordadoCtrl.text.trim(),
@@ -807,6 +819,7 @@ class _EditarProductoSheetState extends State<_EditarProductoSheet> {
           _field('Nombre', _nombreCtrl),
           _field('Descripción', _descCtrl, maxLines: 3),
           _field('Precio', _precioCtrl, keyboard: TextInputType.number),
+          _field('Stock', _stockCtrl, keyboard: TextInputType.number),
           _field('Color', _colorCtrl),
           _field('Tela', _telaCtrl),
           _field('Bordado', _bordadoCtrl),

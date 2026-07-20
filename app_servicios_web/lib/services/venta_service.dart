@@ -74,4 +74,40 @@ class VentaService {
       sumaTotales: suma,
     );
   }
+
+  /// GET /api/ventas/{id} — ownership en backend (tienda del vendedor).
+  Future<Venta> fetchVentaPorId(int id) async {
+    final headers = await ApiService().getAuthHeaders(includeContentType: false);
+    final response = await http.get(
+      Uri.parse('${ApiService.baseUrl}/ventas/$id'),
+      headers: headers,
+    );
+
+    if (response.statusCode == 401) {
+      throw Exception('Sesión expirada. Vuelve a iniciar sesión.');
+    }
+    if (response.statusCode == 403) {
+      throw Exception('No tienes permiso para ver esta venta.');
+    }
+    if (response.statusCode == 404) {
+      throw Exception('Venta no encontrada.');
+    }
+    if (response.statusCode != 200) {
+      throw Exception('Error al cargar venta (${response.statusCode})');
+    }
+
+    final decoded = jsonDecode(response.body);
+    Map<String, dynamic>? map;
+    if (decoded is Map && decoded['venta'] is Map) {
+      map = Map<String, dynamic>.from(decoded['venta'] as Map);
+    } else if (decoded is Map && decoded['data'] is Map) {
+      map = Map<String, dynamic>.from(decoded['data'] as Map);
+    } else if (decoded is Map) {
+      map = Map<String, dynamic>.from(decoded);
+    }
+    if (map == null) {
+      throw Exception('Respuesta de venta inválida');
+    }
+    return Venta.fromJson(map);
+  }
 }
