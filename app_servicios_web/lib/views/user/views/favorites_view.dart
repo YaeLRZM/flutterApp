@@ -50,16 +50,23 @@ class _FavoritesViewState extends State<FavoritesView> {
   }
 
   void _onFavoritosChanged() {
-    _cargarDatos();
+    // Solo memoria local (ya sincronizada con API en toggle); evita carrera
+    // al refrescar desde BD a mitad de un POST/DELETE.
+    _cargarDatos(fromApi: false);
   }
 
-  Future<void> _cargarDatos() async {
+  Future<void> _cargarDatos({bool fromApi = true}) async {
     setState(() {
       _loading = true;
       _error = null;
     });
 
     try {
+      // Entrada a la pantalla: fuente de verdad backend.
+      // Cambios del corazón: ids en memoria (ya actualizados por FavoritosService).
+      if (fromApi) {
+        await FavoritosService.instance.refrescarDesdeApi();
+      }
       final ids = FavoritosService.instance.ids;
       final articulos = await _articuloService.fetchArticulosPorIds(ids);
       final artesanos = await _artesanoService.fetchTodos();
