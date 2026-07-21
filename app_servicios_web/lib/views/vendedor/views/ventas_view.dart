@@ -1,12 +1,17 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../../models/venta.dart';
 import '../../../services/venta_service.dart';
 import '../../../widgets/app_ui.dart';
 
-/// Mis ventas: UI alineada al modelo real `Venta`
-/// (id, total, estado, created_at, user_id, detalle_ventas_count).
-/// Sin cliente nombre, sin guías, sin exportar, sin mock.
+/// Filtro de listado: solo estados reales de la API (pendiente|completada|cancelada).
+/// [todas] incluye también estados vacíos o desconocidos.
+enum _FiltroEstadoVenta { todas, pendientes, completadas, canceladas }
+
+/// Mis ventas: misma entidad/API que las compras del comprador.
+/// Muestra contador de confirmación automática cuando está pendiente.
 class VentasView extends StatefulWidget {
   const VentasView({super.key});
 
@@ -22,22 +27,90 @@ class _VentasViewState extends State<VentasView> {
   final _ventaService = VentaService();
 
   bool _loading = true;
+  bool _reloading = false;
   String? _error;
+  /// Listado completo de la API (sin filtrar).
   List<Venta> _ventas = [];
   int _count = 0;
   double _sumaTotales = 0;
+  _FiltroEstadoVenta _filtro = _FiltroEstadoVenta.todas;
+
+  /// Solo reconstruye textos de countdown (no toda la lista).
+  final ValueNotifier<int> _clockTick = ValueNotifier<int>(0);
+  Timer? _tick;
+  Timer? _poll;
+
+  /// Aplica el filtro de UI sobre el listado real de la API.
+  /// Estados vacíos/desconocidos solo aparecen en [todas].
+  List<Venta> get _ventasFiltradas {
+    switch (_filtro) {
+      case _FiltroEstadoVenta.todas:
+        return _ventas;
+      case _FiltroEstadoVenta.pendientes:
+        return _ventas.where((v) => v.estadoClave == 'pendiente').toList();
+      case _FiltroEstadoVenta.completadas:
+        return _ventas.where((v) => v.estadoClave == 'completada').toList();
+      case _FiltroEstadoVenta.canceladas:
+        return _ventas.where((v) => v.estadoClave == 'cancelada').toList();
+    }
+  }
+
+  int get _countFiltrado => _ventasFiltradas.length;
+
+  double get _sumaFiltrada =>
+      _ventasFiltradas.fold<double>(0, (acc, v) => acc + v.total);
+
+  int get _nPendientes =>
+      _ventas.where((v) => v.estadoClave == 'pendiente').length;
+
+  int get _nCompletadas =>
+      _ventas.where((v) => v.estadoClave == 'completada').length;
+
+  int get _nCanceladas =>
+      _ventas.where((v) => v.estadoClave == 'cancelada').length;
 
   @override
   void initState() {
     super.initState();
     _cargar();
+    // Countdown y auto-refresh usan el listado completo (no el filtrado).
+    _tick = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!mounted) return;
+      final pendientes = _ventas.where((v) => v.estadoClave == 'pendiente');
+      if (pendientes.isEmpty) return;
+      _clockTick.value = _clockTick.value + 1;
+      // Al vencer auto_complete_at, reconsultar ya (index ejecuta completarVencidas).
+      if (pendientes.any((v) {
+        final left = v.tiempoRestanteAutoCompletar;
+        return left != null && left == Duration.zero;
+      })) {
+        _cargar(silencioso: true);
+      }
+    });
+    // Backend completa vencidas al listar; polling captura compras nuevas y cambios.
+    _poll = Timer.periodic(const Duration(seconds: 20), (_) {
+      if (!mounted || _loading || _reloading) return;
+      _cargar(silencioso: true);
+    });
   }
 
-  Future<void> _cargar() async {
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
+  @override
+  void dispose() {
+    _tick?.cancel();
+    _poll?.cancel();
+    _clockTick.dispose();
+    super.dispose();
+  }
+
+  Future<void> _cargar({bool silencioso = false}) async {
+    if (_reloading) return;
+    _reloading = true;
+    if (!silencioso && mounted) {
+      setState(() {
+        _loading = true;
+        _error = null;
+      });
+    }
     try {
       final result = await _ventaService.fetchMisVentas();
       if (!mounted) return;
@@ -46,18 +119,23 @@ class _VentasViewState extends State<VentasView> {
         _count = result.count;
         _sumaTotales = result.sumaTotales;
         _loading = false;
+        _error = null;
       });
     } catch (e) {
       if (!mounted) return;
+      if (silencioso) {
+        _reloading = false;
+        return;
+      }
       setState(() {
         _error = e.toString().replaceFirst('Exception: ', '');
         _loading = false;
       });
+    } finally {
+      _reloading = false;
     }
   }
 
-  /// Tintas por estado de venta.
-  /// Si llega otro valor, se muestra el texto tal cual (sin inventar significado).
   Color _estadoColor(String estado) {
     switch (estado.toLowerCase().trim()) {
       case 'pendiente':
@@ -66,10 +144,6 @@ class _VentasViewState extends State<VentasView> {
         return const Color(0xFF6D4C41);
       case 'completada':
         return const Color(0xFF2ECC71);
-      case 'cancelada':
-        return const Color(0xFFE74C3C);
-      case 'pendiente':
-        return const Color(0xFFF39C12);
       default:
         return secondaryText;
     }
@@ -99,12 +173,19 @@ class _VentasViewState extends State<VentasView> {
     }
 
     if (_error != null) {
-      return AppErrorView(message: _error!, onRetry: _cargar);
+      return AppErrorView(message: _error!, onRetry: () => _cargar());
     }
+
+    final filtradas = _ventasFiltradas;
+    // Contadores del resumen: con filtro activo reflejan el subconjunto visible.
+    final countMostrado =
+        _filtro == _FiltroEstadoVenta.todas ? _count : _countFiltrado;
+    final sumaMostrada =
+        _filtro == _FiltroEstadoVenta.todas ? _sumaTotales : _sumaFiltrada;
 
     return RefreshIndicator(
       color: bugambilia,
-      onRefresh: _cargar,
+      onRefresh: () => _cargar(),
       child: ListView(
         padding: const EdgeInsets.fromLTRB(20, 20, 20, 40),
         children: [
@@ -118,26 +199,68 @@ class _VentasViewState extends State<VentasView> {
           ),
           const SizedBox(height: 6),
           const Text(
-            'Ventas de tu tienda. Toca una para ver el detalle.',
+            'Ventas de tu tienda (mismas operaciones que ve el comprador). '
+            'Las pendientes se confirman solas en unos minutos.',
             style: TextStyle(fontSize: 13, color: secondaryText),
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 16),
 
-          // meta.count / meta.suma_totales (calculados del listado filtrado)
+          // Filtro por estado real de la API.
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                _filtroChip(
+                  label: 'Todas (${_ventas.length})',
+                  selected: _filtro == _FiltroEstadoVenta.todas,
+                  onTap: () =>
+                      setState(() => _filtro = _FiltroEstadoVenta.todas),
+                ),
+                const SizedBox(width: 8),
+                _filtroChip(
+                  label: 'Pendientes ($_nPendientes)',
+                  selected: _filtro == _FiltroEstadoVenta.pendientes,
+                  onTap: () =>
+                      setState(() => _filtro = _FiltroEstadoVenta.pendientes),
+                ),
+                const SizedBox(width: 8),
+                _filtroChip(
+                  label: 'Completadas ($_nCompletadas)',
+                  selected: _filtro == _FiltroEstadoVenta.completadas,
+                  onTap: () =>
+                      setState(() => _filtro = _FiltroEstadoVenta.completadas),
+                ),
+                const SizedBox(width: 8),
+                _filtroChip(
+                  label: 'Canceladas ($_nCanceladas)',
+                  selected: _filtro == _FiltroEstadoVenta.canceladas,
+                  onTap: () =>
+                      setState(() => _filtro = _FiltroEstadoVenta.canceladas),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // Conteo / suma del listado visible (filtrado o total).
           Row(
             children: [
               Expanded(
                 child: _summaryTile(
-                  label: 'VENTAS',
-                  value: '$_count',
+                  label: _filtro == _FiltroEstadoVenta.todas
+                      ? 'VENTAS'
+                      : 'VENTAS (FILTRO)',
+                  value: '$countMostrado',
                   accent: bugambilia,
                 ),
               ),
               const SizedBox(width: 12),
               Expanded(
                 child: _summaryTile(
-                  label: 'SUMA DE TOTAL',
-                  value: _fmtMoney(_sumaTotales),
+                  label: _filtro == _FiltroEstadoVenta.todas
+                      ? 'SUMA DE TOTAL'
+                      : 'SUMA (FILTRO)',
+                  value: _fmtMoney(sumaMostrada),
                   accent: const Color(0xFF2ECC71),
                 ),
               ),
@@ -152,9 +275,53 @@ class _VentasViewState extends State<VentasView> {
               subtitle:
                   'Cuando un comprador complete una compra de tus productos, aparecerá aquí.',
             )
+          else if (filtradas.isEmpty)
+            AppEmptyView(
+              icon: Icons.filter_list_off_outlined,
+              title: 'No hay ventas con este estado.',
+              subtitle: _filtro == _FiltroEstadoVenta.pendientes
+                  ? 'No tienes ventas pendientes en este momento.'
+                  : _filtro == _FiltroEstadoVenta.completadas
+                      ? 'Aún no hay ventas completadas.'
+                      : _filtro == _FiltroEstadoVenta.canceladas
+                          ? 'No hay ventas canceladas.'
+                          : 'Prueba otro filtro o recarga la lista.',
+            )
           else
-            ..._ventas.map(_buildVentaCard),
+            ...filtradas.map(_buildVentaCard),
         ],
+      ),
+    );
+  }
+
+  Widget _filtroChip({
+    required String label,
+    required bool selected,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: selected ? bugambilia : Colors.white,
+      borderRadius: BorderRadius.circular(20),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(20),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: selected ? bugambilia : const Color(0xFFE0D8D4),
+            ),
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: selected ? Colors.white : secondaryText,
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -213,10 +380,13 @@ class _VentasViewState extends State<VentasView> {
           child: _VentaDetalleSheet(
             ventaId: v.id,
             ventaService: _ventaService,
+            clockTick: _clockTick,
           ),
         );
       },
     );
+    // Al cerrar el detalle, refrescar por si cambió el estado.
+    if (mounted) _cargar(silencioso: true);
   }
 
   Widget _buildVentaCard(Venta v) {
@@ -230,6 +400,7 @@ class _VentasViewState extends State<VentasView> {
         onTap: () => _abrirDetalle(v),
         borderRadius: BorderRadius.circular(14),
         child: Container(
+          key: ValueKey('venta_${v.id}_${v.estado}'),
           margin: const EdgeInsets.only(bottom: 12),
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
@@ -289,6 +460,15 @@ class _VentasViewState extends State<VentasView> {
                   color: bugambilia,
                 ),
               ),
+              // Contador: solo estado real pendiente (misma verdad que comprador).
+              if (v.debeMostrarContadorConfirmacion) ...[
+                const SizedBox(height: 10),
+                _VentaCountdownChip(
+                  venta: v,
+                  clock: _clockTick,
+                  esVendedor: true,
+                ),
+              ],
               const SizedBox(height: 10),
               _kv('Fecha', _fmtDate(v.createdAt)),
               if (v.userId > 0) _kv('Cliente', 'Cliente #${v.userId}'),
@@ -335,14 +515,16 @@ class _VentasViewState extends State<VentasView> {
   }
 }
 
-/// Detalle mínimo: GET /api/ventas/{id} — solo campos reales del backend.
+/// Detalle: GET /api/ventas/{id} (misma entidad que la compra del comprador).
 class _VentaDetalleSheet extends StatefulWidget {
   final int ventaId;
   final VentaService ventaService;
+  final ValueNotifier<int> clockTick;
 
   const _VentaDetalleSheet({
     required this.ventaId,
     required this.ventaService,
+    required this.clockTick,
   });
 
   @override
@@ -353,33 +535,69 @@ class _VentaDetalleSheetState extends State<_VentaDetalleSheet> {
   static const Color secondaryText = Color(0xFF5E6668);
 
   bool _loading = true;
+  bool _reloading = false;
   String? _error;
   Venta? _venta;
+  Timer? _poll;
+  Timer? _expireWatch;
 
   @override
   void initState() {
     super.initState();
     _cargar();
+    _poll = Timer.periodic(const Duration(seconds: 15), (_) {
+      if (!mounted || _reloading) return;
+      if (_venta?.estadoClave == 'pendiente') {
+        _cargar(silencioso: true);
+      }
+    });
+    // Si el reloj local llega a 0, forzar GET (show también completa vencidas).
+    _expireWatch = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!mounted || _reloading) return;
+      if (_venta?.estadoClave != 'pendiente') return;
+      final left = _venta?.tiempoRestanteAutoCompletar;
+      if (left != null && left == Duration.zero) {
+        _cargar(silencioso: true);
+      }
+    });
   }
 
-  Future<void> _cargar() async {
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
+  @override
+  void dispose() {
+    _poll?.cancel();
+    _expireWatch?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _cargar({bool silencioso = false}) async {
+    if (_reloading) return;
+    _reloading = true;
+    if (!silencioso && mounted) {
+      setState(() {
+        _loading = true;
+        _error = null;
+      });
+    }
     try {
       final v = await widget.ventaService.fetchVentaPorId(widget.ventaId);
       if (!mounted) return;
       setState(() {
         _venta = v;
         _loading = false;
+        _error = null;
       });
     } catch (e) {
       if (!mounted) return;
+      if (silencioso) {
+        _reloading = false;
+        return;
+      }
       setState(() {
         _error = e.toString().replaceFirst('Exception: ', '');
         _loading = false;
       });
+    } finally {
+      _reloading = false;
     }
   }
 
@@ -434,7 +652,7 @@ class _VentaDetalleSheetState extends State<_VentaDetalleSheet> {
                   child: AppLoadingView(),
                 )
               else if (_error != null)
-                AppErrorView(message: _error!, onRetry: _cargar)
+                AppErrorView(message: _error!, onRetry: () => _cargar())
               else if (_venta == null)
                 const AppEmptyView(
                   title: 'No disponible',
@@ -459,6 +677,14 @@ class _VentaDetalleSheetState extends State<_VentaDetalleSheet> {
         _row('Fecha', _fmtDate(v.createdAt)),
         _row('Cliente', v.etiquetaCliente),
         _row('Forma de pago', v.etiquetaFormaPago),
+        if (v.debeMostrarContadorConfirmacion) ...[
+          const SizedBox(height: 12),
+          _VentaCountdownChip(
+            venta: v,
+            clock: widget.clockTick,
+            esVendedor: true,
+          ),
+        ],
         const SizedBox(height: 16),
         const Text(
           'Artículos vendidos',
@@ -496,7 +722,6 @@ class _VentaDetalleSheetState extends State<_VentaDetalleSheet> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            // Nombre real o "Artículo #id" — nunca inventado.
             line.etiquetaArticulo,
             style: const TextStyle(
               fontWeight: FontWeight.w700,
@@ -504,10 +729,9 @@ class _VentaDetalleSheetState extends State<_VentaDetalleSheet> {
             ),
           ),
           const SizedBox(height: 6),
-          _row('articulo_id', '${line.articuloId}'),
-          _row('cantidad', '${line.cantidad}'),
-          _row('precio_unitario', _fmtMoney(line.precioUnitario)),
-          _row('subtotal', _fmtMoney(line.subtotal)),
+          _row('Cantidad', '${line.cantidad}'),
+          _row('Precio unitario', _fmtMoney(line.precioUnitario)),
+          _row('Subtotal', _fmtMoney(line.subtotal)),
         ],
       ),
     );
@@ -534,6 +758,84 @@ class _VentaDetalleSheetState extends State<_VentaDetalleSheet> {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Contador visible: chip naranja + reloj; escucha [clock] cada segundo.
+/// No depende de labels de rol para pintarse — solo de [Venta] pendiente.
+class _VentaCountdownChip extends StatelessWidget {
+  final Venta venta;
+  final ValueNotifier<int> clock;
+  final bool esVendedor;
+
+  const _VentaCountdownChip({
+    required this.venta,
+    required this.clock,
+    this.esVendedor = true,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<int>(
+      valueListenable: clock,
+      builder: (context, tick, child) {
+        // Forzar lectura de tick para que el builder no se elimine por lint
+        // y recalcular restante con DateTime.now() en cada tick.
+        final _ = tick;
+        final msg = venta.mensajeTiempoConfirmacion(esVendedor: esVendedor);
+        final display = msg.trim().isEmpty
+            ? 'Se completará automáticamente'
+            : msg;
+        final reloj = venta.relojRestanteTexto;
+
+        return Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: BoxDecoration(
+            color: const Color(0xFFFFF3E0),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: const Color(0xFFFFCC80)),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Padding(
+                padding: EdgeInsets.only(top: 1),
+                child: Icon(
+                  Icons.timer_outlined,
+                  size: 18,
+                  color: Color(0xFFE65100),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  display,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Color(0xFFE65100),
+                    height: 1.35,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              if (reloj != null) ...[
+                const SizedBox(width: 8),
+                Text(
+                  reloj,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w900,
+                    color: Color(0xFFE65100),
+                    fontFeatures: [FontFeature.tabularFigures()],
+                  ),
+                ),
+              ],
+            ],
+          ),
+        );
+      },
     );
   }
 }

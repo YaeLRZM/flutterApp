@@ -61,16 +61,9 @@ class _LoginScreenState extends State<LoginScreen> {
     }
 
     final user = me['user'];
-    String role = '';
-    if (user is Map) {
-      role = (user['rol'] ?? '').toString().toLowerCase().trim();
-      if (role.isEmpty) {
-        final roles = user['roles'];
-        if (roles is List && roles.isNotEmpty && roles.first is Map) {
-          role = (roles.first['name'] ?? '').toString().toLowerCase().trim();
-        }
-      }
-    }
+    final role = ApiService.normalizeRole(
+      me['role']?.toString() ?? ApiService.roleFromUserMap(user),
+    );
 
     if (role == 'admin') {
       await api.clearToken();
@@ -79,11 +72,12 @@ class _LoginScreenState extends State<LoginScreen> {
       return;
     }
 
+    await api.saveRole(role);
     await LocalSessionStore.onAuthenticated(
       userId: LocalSessionStore.userIdFromMap(user),
     );
 
-    final isSeller = role == 'vendedor' || role.contains('seller');
+    final isSeller = ApiService.isVendedorRoleName(role);
     if (!mounted) return;
     Navigator.pushReplacement(
       context,
@@ -154,8 +148,10 @@ class _LoginScreenState extends State<LoginScreen> {
       return;
     }
 
-    final String userRole =
-        (response['role'] ?? '').toString().toLowerCase().trim();
+    final String userRole = ApiService.normalizeRole(
+      response['role']?.toString() ??
+          ApiService.roleFromUserMap(response['user']),
+    );
 
     if (userRole == 'admin') {
       // Backend ya bloquea admin (403); por si llega token residual.
@@ -172,12 +168,12 @@ class _LoginScreenState extends State<LoginScreen> {
       return;
     }
 
+    await apiService.saveRole(userRole);
     await LocalSessionStore.onAuthenticated(
       userId: LocalSessionStore.userIdFromMap(response['user']),
     );
 
-    final bool isSellerActual =
-        userRole == 'vendedor' || userRole.contains('seller');
+    final bool isSellerActual = ApiService.isVendedorRoleName(userRole);
 
     // Si el toggle no coincide, se avisa pero se entra con el rol real.
     if (isSellerActual != _isSeller && mounted) {

@@ -23,6 +23,7 @@ class _MisComprasViewState extends State<MisComprasView> {
   final _ventaService = VentaService();
 
   bool _loading = true;
+  bool _reloading = false;
   String? _error;
   List<Venta> _compras = [];
   int _count = 0;
@@ -38,16 +39,21 @@ class _MisComprasViewState extends State<MisComprasView> {
     // Solo refresca UI del reloj; el cambio de estado lo decide el backend.
     _tick = Timer.periodic(const Duration(seconds: 1), (_) {
       if (!mounted) return;
-      if (_compras.any((c) => c.sePuedeCancelar)) {
-        setState(() {});
-      }
-    });
-    // Reconsulta periódica para capturar auto-completado del backend.
-    _refreshPoll = Timer.periodic(const Duration(seconds: 30), (_) {
-      if (!mounted || _loading) return;
-      if (_compras.any((c) => c.sePuedeCancelar)) {
+      final pendientes = _compras.where((c) => c.estadoClave == 'pendiente');
+      if (pendientes.isEmpty) return;
+      setState(() {});
+      // Al vencer el temporizador, pedir estado real al backend de inmediato.
+      if (pendientes.any((c) {
+        final left = c.tiempoRestanteAutoCompletar;
+        return left != null && left == Duration.zero;
+      })) {
         _cargar(silencioso: true);
       }
+    });
+    // Reconsulta periódica: auto-completado del backend (GET ejecuta completarVencidas).
+    _refreshPoll = Timer.periodic(const Duration(seconds: 20), (_) {
+      if (!mounted || _loading || _reloading) return;
+      _cargar(silencioso: true);
     });
   }
 
@@ -59,7 +65,9 @@ class _MisComprasViewState extends State<MisComprasView> {
   }
 
   Future<void> _cargar({bool silencioso = false}) async {
-    if (!silencioso) {
+    if (_reloading) return;
+    _reloading = true;
+    if (!silencioso && mounted) {
       setState(() {
         _loading = true;
         _error = null;
@@ -95,6 +103,8 @@ class _MisComprasViewState extends State<MisComprasView> {
         _error = e.toString().replaceFirst('Exception: ', '');
         _loading = false;
       });
+    } finally {
+      _reloading = false;
     }
   }
 
@@ -314,16 +324,11 @@ class _MisComprasViewState extends State<MisComprasView> {
                 'Fecha: ${_fmtDate(v.createdAt)}',
                 style: const TextStyle(fontSize: 12, color: secondaryText),
               ),
+              if (v.debeMostrarContadorConfirmacion) ...[
+                const SizedBox(height: 10),
+                _CompraCountdownChip(venta: v),
+              ],
               if (v.sePuedeCancelar) ...[
-                const SizedBox(height: 8),
-                Text(
-                  v.mensajeTiempoConfirmacion,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: Color(0xFFE65100),
-                    height: 1.35,
-                  ),
-                ),
                 const SizedBox(height: 8),
                 Align(
                   alignment: Alignment.centerRight,
@@ -345,6 +350,69 @@ class _MisComprasViewState extends State<MisComprasView> {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Contador de auto-confirmación (misma fuente: auto_complete_at).
+/// Se repinta con el Timer del listado vía setState del padre.
+class _CompraCountdownChip extends StatelessWidget {
+  final Venta venta;
+
+  const _CompraCountdownChip({required this.venta});
+
+  @override
+  Widget build(BuildContext context) {
+    final msg = venta.mensajeTiempoConfirmacion();
+    final display =
+        msg.trim().isEmpty ? 'Se completará automáticamente' : msg;
+    final reloj = venta.relojRestanteTexto;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF3E0),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFFFCC80)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Padding(
+            padding: EdgeInsets.only(top: 1),
+            child: Icon(
+              Icons.timer_outlined,
+              size: 18,
+              color: Color(0xFFE65100),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              display,
+              style: const TextStyle(
+                fontSize: 12,
+                color: Color(0xFFE65100),
+                height: 1.35,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          if (reloj != null) ...[
+            const SizedBox(width: 8),
+            Text(
+              reloj,
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w900,
+                color: Color(0xFFE65100),
+                fontFeatures: [FontFeature.tabularFigures()],
+              ),
+            ),
+          ],
+        ],
       ),
     );
   }

@@ -9,9 +9,29 @@ double _asDouble(dynamic v) {
   return double.tryParse(v?.toString() ?? '') ?? 0;
 }
 
+/// Parsea fechas de Laravel/MySQL a DateTime usable en UI.
+/// - ISO con Z / offset → respeta zona y se convierte con toLocal() al calcular.
+/// - "yyyy-MM-dd HH:mm:ss" sin zona (APP_TZ suele ser UTC) → se interpreta como UTC.
 DateTime? _asDate(dynamic v) {
   if (v == null) return null;
-  return DateTime.tryParse(v.toString());
+  if (v is DateTime) return v;
+
+  var s = v.toString().trim();
+  if (s.isEmpty || s == 'null') return null;
+
+  // "2026-07-21 05:00:07.000000" → ISO UTC si no trae zona.
+  final naive = RegExp(
+    r'^(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2}:\d{2})(\.\d+)?$',
+  ).firstMatch(s);
+  if (naive != null) {
+    final frac = naive.group(3) ?? '';
+    s = '${naive.group(1)}T${naive.group(2)}${frac}Z';
+  }
+
+  final parsed = DateTime.tryParse(s);
+  if (parsed == null) return null;
+  // Normalizar a instante absoluto (UTC) y dejar toLocal() al mostrar/restar.
+  return parsed.isUtc ? parsed : parsed.toUtc();
 }
 
 String? _nestedNombre(Map<String, dynamic> json, String key) {
@@ -168,27 +188,55 @@ class Venta {
   /// Solo compras pendientes se pueden cancelar (regla backend).
   bool get sePuedeCancelar => estadoClave == 'pendiente';
 
-  /// Tiempo restante hasta auto-confirmación (null si no aplica).
+  /// Hay temporizador de confirmación (pendiente + auto_complete_at).
+  bool get tieneTemporizadorConfirmacion =>
+      estadoClave == 'pendiente' && autoCompleteAt != null;
+
+  /// Debe mostrarse el bloque de contador (solo depende del estado real).
+  bool get debeMostrarContadorConfirmacion => estadoClave == 'pendiente';
+
+  /// Tiempo restante hasta auto-confirmación (null si no hay auto_complete_at).
   Duration? get tiempoRestanteAutoCompletar {
-    if (!sePuedeCancelar || autoCompleteAt == null) return null;
-    final left = autoCompleteAt!.toLocal().difference(DateTime.now());
+    if (estadoClave != 'pendiente' || autoCompleteAt == null) return null;
+    final target = autoCompleteAt!.toLocal();
+    final left = target.difference(DateTime.now());
     return left.isNegative ? Duration.zero : left;
   }
 
-  String get mensajeTiempoConfirmacion {
+  /// Reloj corto "M:SS" / "S s" para chip de UI (null si no hay fecha).
+  String? get relojRestanteTexto {
+    final left = tiempoRestanteAutoCompletar;
+    if (left == null) return null;
+    if (left == Duration.zero) return '0 s';
+    final m = left.inMinutes;
+    final s = left.inSeconds % 60;
+    if (m > 0) return '$m:${s.toString().padLeft(2, '0')}';
+    return '$s s';
+  }
+
+  /// Mensaje de reloj legible (misma verdad de datos; enfoque por rol).
+  /// Nunca devuelve vacío si estado == pendiente (fallback visible).
+  String mensajeTiempoConfirmacion({bool esVendedor = false}) {
+    if (estadoClave != 'pendiente') return '';
+
     final left = tiempoRestanteAutoCompletar;
     if (left == null) {
-      return 'Tu compra está en proceso y se confirmará en unos minutos.';
+      // Pendiente sin auto_complete_at (legacy o parse fallido): no silenciar.
+      return 'Se completará automáticamente';
     }
     if (left == Duration.zero) {
-      return 'Tu compra se está confirmando… actualiza en un momento.';
+      return esVendedor
+          ? 'Esta venta se está confirmando… se actualizará en un momento.'
+          : 'Tu compra se está confirmando… actualiza en un momento.';
     }
     final m = left.inMinutes;
     final s = left.inSeconds % 60;
     final reloj = m > 0
         ? '$m min ${s.toString().padLeft(2, '0')} s'
         : '$s s';
-    return 'Tu compra está en proceso y se confirmará en aproximadamente $reloj.';
+    return esVendedor
+        ? 'Se confirmará automáticamente en aproximadamente $reloj.'
+        : 'Tu compra está en proceso y se confirmará en aproximadamente $reloj.';
   }
 }
 

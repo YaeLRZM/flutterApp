@@ -42,6 +42,16 @@ class AppUi {
       ),
     );
   }
+
+  /// Aviso corto cuando un vendedor intenta carrito / compra / reseña.
+  static void showAccionNoPermitidaVendedor(BuildContext context) {
+    ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+      const SnackBar(
+        content: Text('Acción no permitida para cuentas vendedor'),
+        duration: Duration(seconds: 3),
+      ),
+    );
+  }
 }
 
 /// Loading centrado estándar.

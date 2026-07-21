@@ -12,6 +12,7 @@ import '../../../services/carrito_service.dart';
 import '../../../services/favoritos_service.dart';
 import '../../../services/resena_service.dart';
 import '../../../widgets/app_ui.dart';
+import '../../../widgets/favorite_heart_button.dart';
 import '../../../widgets/product_grid_item.dart';
 import '../../../widgets/product_image_gallery.dart';
 import 'checkout_view.dart';
@@ -43,6 +44,8 @@ class _ProductDetailViewState extends State<ProductDetailView> {
   List<Resena> _resenas = [];
   List<Articulo> _masObrasDelArtesano = [];
   bool _loggedIn = false;
+  /// Rol vendedor: no carrito, no compra, no reseñas (reglas de catálogo).
+  bool _esVendedor = false;
 
   final _comentarioCtrl = TextEditingController();
   int _nuevaCalificacion = 5;
@@ -84,7 +87,20 @@ class _ProductDetailViewState extends State<ProductDetailView> {
         return;
       }
 
-      final token = await ApiService().getToken();
+      final api = ApiService();
+      final token = await api.getToken();
+      // Rol desde sesión; si falta, una sola consulta a /me.
+      var esVendedor = await api.isVendedor();
+      if (token != null && (await api.getRole()).isEmpty) {
+        final me = await api.fetchMe();
+        if (me['success'] == true) {
+          esVendedor = ApiService.isVendedorRoleName(
+            me['role']?.toString() ??
+                ApiService.roleFromUserMap(me['user']),
+          );
+        }
+      }
+
       final results = await Future.wait([
         _artesanoService.fetchArtesanoPorId(articulo.artesanoId),
         _imagenService.fetchImagenesPorArticulo(articulo.id),
@@ -117,6 +133,7 @@ class _ProductDetailViewState extends State<ProductDetailView> {
         _resumenResenas = resumen;
         _masObrasDelArtesano = results[3] as List<Articulo>;
         _loggedIn = token != null;
+        _esVendedor = esVendedor;
         _loading = false;
       });
     } catch (e) {
@@ -169,9 +186,18 @@ class _ProductDetailViewState extends State<ProductDetailView> {
     );
   }
 
+  void _avisarAccionVendedor() {
+    AppUi.showAccionNoPermitidaVendedor(context);
+  }
+
   Future<void> _enviarResena() async {
     final articulo = _articulo;
     if (articulo == null || _enviandoResena) return;
+
+    if (_esVendedor) {
+      _avisarAccionVendedor();
+      return;
+    }
 
     setState(() => _enviandoResena = true);
     final result = await _resenaService.crearResena(
@@ -204,9 +230,16 @@ class _ProductDetailViewState extends State<ProductDetailView> {
     return a.disponible && a.stock > 0;
   }
 
+  /// Apariencia habilitada: stock OK y no es cuenta vendedor.
+  bool get _accionesCompraHabilitadas => _puedeComprar && !_esVendedor;
+
   void _comprarAhora() {
     final articulo = _articulo;
     if (articulo == null) return;
+    if (_esVendedor) {
+      _avisarAccionVendedor();
+      return;
+    }
     if (!_puedeComprar) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -227,6 +260,10 @@ class _ProductDetailViewState extends State<ProductDetailView> {
   Future<void> _agregarAlCarrito() async {
     final articulo = _articulo;
     if (articulo == null) return;
+    if (_esVendedor) {
+      _avisarAccionVendedor();
+      return;
+    }
     if (!_puedeComprar) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -294,7 +331,6 @@ class _ProductDetailViewState extends State<ProductDetailView> {
     }
 
     final articulo = _articulo!;
-    final esFavorito = FavoritosService.instance.esFavorito(articulo.id);
 
     return SingleChildScrollView(
       child: Padding(
@@ -306,7 +342,7 @@ class _ProductDetailViewState extends State<ProductDetailView> {
             const SizedBox(height: 16),
             ProductImageGallery(imagenes: _imagenes),
             const SizedBox(height: 24),
-            _buildProductHeader(articulo, esFavorito),
+            _buildProductHeader(articulo),
             const SizedBox(height: 24),
             if (_artesano != null) ...[
               InkWell(
@@ -451,7 +487,23 @@ class _ProductDetailViewState extends State<ProductDetailView> {
           );
         }),
         const SizedBox(height: 8),
-        if (_loggedIn) _buildFormResena() else
+        if (_esVendedor)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.grey.shade100,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.grey.shade300),
+            ),
+            child: const Text(
+              'Las cuentas vendedor no pueden publicar reseñas ni calificar productos.',
+              style: TextStyle(fontSize: 12, color: Colors.black54, height: 1.35),
+            ),
+          )
+        else if (_loggedIn)
+          _buildFormResena()
+        else
           const Text(
             'Inicia sesión para dejar una reseña.',
             style: TextStyle(fontSize: 12, color: Colors.black45),
@@ -461,6 +513,10 @@ class _ProductDetailViewState extends State<ProductDetailView> {
   }
 
   Widget _buildFormResena() {
+    // Defensa: no montar controles de calificación si es vendedor.
+    if (_esVendedor) {
+      return const SizedBox.shrink();
+    }
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(12),
@@ -482,7 +538,13 @@ class _ProductDetailViewState extends State<ProductDetailView> {
               final star = i + 1;
               return IconButton(
                 visualDensity: VisualDensity.compact,
-                onPressed: () => setState(() => _nuevaCalificacion = star),
+                onPressed: () {
+                  if (_esVendedor) {
+                    _avisarAccionVendedor();
+                    return;
+                  }
+                  setState(() => _nuevaCalificacion = star);
+                },
                 icon: Icon(
                   star <= _nuevaCalificacion ? Icons.star : Icons.star_border,
                   color: Colors.amber,
@@ -493,6 +555,7 @@ class _ProductDetailViewState extends State<ProductDetailView> {
           TextField(
             controller: _comentarioCtrl,
             maxLines: 3,
+            enabled: !_esVendedor,
             decoration: InputDecoration(
               hintText: 'Comentario (opcional)',
               filled: true,
@@ -506,10 +569,19 @@ class _ProductDetailViewState extends State<ProductDetailView> {
           Align(
             alignment: Alignment.centerRight,
             child: ElevatedButton(
-              onPressed: _enviandoResena ? null : _enviarResena,
+              onPressed: _enviandoResena
+                  ? null
+                  : () {
+                      if (_esVendedor) {
+                        _avisarAccionVendedor();
+                        return;
+                      }
+                      _enviarResena();
+                    },
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFFD81B60),
                 foregroundColor: Colors.white,
+                disabledBackgroundColor: Colors.grey.shade400,
               ),
               child: Text(_enviandoResena ? 'Enviando…' : 'Publicar'),
             ),
@@ -547,7 +619,7 @@ class _ProductDetailViewState extends State<ProductDetailView> {
   }
 
   // --- 2. Encabezado (badge, título, estrellas, precio) ---
-  Widget _buildProductHeader(Articulo articulo, bool esFavorito) {
+  Widget _buildProductHeader(Articulo articulo) {
     final resumen = _resumenResenas;
 
     return Column(
@@ -574,12 +646,12 @@ class _ProductDetailViewState extends State<ProductDetailView> {
                 ),
               ),
             ),
-            GestureDetector(
-              onTap: () => FavoritosService.instance.toggle(articulo.id),
-              child: Icon(
-                esFavorito ? Icons.favorite : Icons.favorite_border,
-                color: esFavorito ? Colors.pink : Colors.black54,
-              ),
+            FavoriteHeartButton(
+              articuloId: articulo.id,
+              iconSize: 24,
+              radius: 18,
+              activeColor: Colors.pink,
+              inactiveColor: Colors.black54,
             ),
           ],
         ),
@@ -778,11 +850,19 @@ class _ProductDetailViewState extends State<ProductDetailView> {
 
   // --- 5. Botones de acción ---
   Widget _buildActionButtons() {
-    final enabled = _puedeComprar;
+    final looksEnabled = _accionesCompraHabilitadas;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (!enabled)
+        if (_esVendedor)
+          const Padding(
+            padding: EdgeInsets.only(bottom: 10),
+            child: Text(
+              'Las cuentas vendedor no pueden agregar al carrito ni comprar.',
+              style: TextStyle(fontSize: 12, color: Colors.black54, height: 1.35),
+            ),
+          )
+        else if (!_puedeComprar)
           const Padding(
             padding: EdgeInsets.only(bottom: 10),
             child: Text(
@@ -795,10 +875,17 @@ class _ProductDetailViewState extends State<ProductDetailView> {
             Expanded(
               flex: 5,
               child: ElevatedButton(
-                onPressed: enabled ? _comprarAhora : null,
+                // Siempre con handler: vendedor recibe SnackBar; sin stock queda deshabilitado.
+                onPressed: _esVendedor
+                    ? _comprarAhora
+                    : (_puedeComprar ? _comprarAhora : null),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFD81B60),
+                  backgroundColor: looksEnabled
+                      ? const Color(0xFFD81B60)
+                      : Colors.grey.shade400,
                   disabledBackgroundColor: Colors.grey.shade400,
+                  foregroundColor: Colors.white,
+                  disabledForegroundColor: Colors.white70,
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(24),
@@ -819,11 +906,13 @@ class _ProductDetailViewState extends State<ProductDetailView> {
             Expanded(
               flex: 4,
               child: OutlinedButton.icon(
-                onPressed: enabled ? _agregarAlCarrito : null,
+                onPressed: _esVendedor
+                    ? _agregarAlCarrito
+                    : (_puedeComprar ? _agregarAlCarrito : null),
                 style: OutlinedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   side: BorderSide(
-                    color: enabled
+                    color: looksEnabled
                         ? const Color(0xFFD81B60)
                         : Colors.grey.shade400,
                     width: 1.5,
@@ -834,13 +923,13 @@ class _ProductDetailViewState extends State<ProductDetailView> {
                 ),
                 icon: Icon(
                   Icons.shopping_bag_outlined,
-                  color: enabled ? const Color(0xFFD81B60) : Colors.grey,
+                  color: looksEnabled ? const Color(0xFFD81B60) : Colors.grey,
                   size: 20,
                 ),
                 label: Text(
                   'Agregar',
                   style: TextStyle(
-                    color: enabled ? const Color(0xFFD81B60) : Colors.grey,
+                    color: looksEnabled ? const Color(0xFFD81B60) : Colors.grey,
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
                   ),

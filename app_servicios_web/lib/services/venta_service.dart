@@ -90,6 +90,9 @@ class VentaService {
     int? formaPagoId,
     bool alreadyRetried = false,
   }) async {
+    if (await ApiService().isVendedor()) {
+      throw Exception(ApiService.msgAccionNoPermitidaVendedor);
+    }
     if (items.isEmpty) {
       throw Exception('El carrito está vacío.');
     }

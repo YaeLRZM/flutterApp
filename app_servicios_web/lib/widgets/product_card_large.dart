@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/articulo.dart';
 import '../models/cupon.dart';
+import 'favorite_heart_button.dart';
 
 class ProductCardLarge extends StatelessWidget {
   final Articulo articulo;
@@ -52,20 +53,10 @@ class ProductCardLarge extends StatelessWidget {
                 Positioned(
                   top: 10,
                   right: 10,
-                  child: GestureDetector(
-                    onTap: onFavoriteToggle,
-                    child: Container(
-                      padding: const EdgeInsets.all(6),
-                      decoration: const BoxDecoration(
-                        color: Colors.white,
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(
-                        isFavorite ? Icons.favorite : Icons.favorite_border,
-                        size: 18,
-                        color: isFavorite ? Colors.pink : Colors.black54,
-                      ),
-                    ),
+                  child: FavoriteHeartButton(
+                    articuloId: articulo.id,
+                    iconSize: 18,
+                    radius: 16,
                   ),
                 ),
               ],

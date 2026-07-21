@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 
 import '../../../models/artesano.dart';
 import '../../../models/articulo.dart';
+import '../../../services/api_service.dart';
 import '../../../services/articulo_service.dart';
 import '../../../services/artesano_service.dart';
 import '../../../services/carrito_service.dart';
 import '../../../services/favoritos_service.dart';
 import '../../../widgets/app_ui.dart';
+import '../../../widgets/favorite_heart_button.dart';
 import 'product_detail_view.dart';
 
 /// Vista de Favoritos. Los artículos guardados viven en
@@ -86,15 +88,33 @@ class _FavoritesViewState extends State<FavoritesView> {
     );
   }
 
-  void _agregarTodoAlCarrito() {
-    for (final articulo in _articulos) {
-      CarritoService.instance.agregar(articulo.id);
+  Future<void> _agregarTodoAlCarrito() async {
+    if (await ApiService().isVendedor()) {
+      if (!mounted) return;
+      AppUi.showAccionNoPermitidaVendedor(context);
+      return;
     }
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('${_articulos.length} artículo(s) agregados al carrito'),
-      ),
-    );
+    try {
+      for (final articulo in _articulos) {
+        await CarritoService.instance.agregar(articulo.id);
+      }
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            '${_articulos.length} artículo(s) agregados al carrito',
+          ),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.toString().replaceFirst('Exception: ', '')),
+          backgroundColor: Colors.red.shade700,
+        ),
+      );
+    }
   }
 
   /// Deriva un estado de disponibilidad a partir del `stock`.
@@ -191,29 +211,37 @@ class _FavoritesViewState extends State<FavoritesView> {
   Widget _buildAddAllButton() {
     return Align(
       alignment: Alignment.centerLeft,
-      child: ElevatedButton.icon(
-        onPressed: _agregarTodoAlCarrito,
-        icon: const Icon(
-          Icons.shopping_bag_outlined,
-          color: Colors.white,
-          size: 18,
-        ),
-        label: const Text(
-          'Añadir todo al carrito',
-          style: TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-            fontSize: 14,
-          ),
-        ),
-        style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFFD81B60),
-          elevation: 0,
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(24),
-          ),
-        ),
+      child: FutureBuilder<bool>(
+        future: ApiService().isVendedor(),
+        builder: (context, snap) {
+          final esVendedor = snap.data == true;
+          return ElevatedButton.icon(
+            onPressed: _agregarTodoAlCarrito,
+            icon: Icon(
+              Icons.shopping_bag_outlined,
+              color: esVendedor ? Colors.white70 : Colors.white,
+              size: 18,
+            ),
+            label: Text(
+              'Añadir todo al carrito',
+              style: TextStyle(
+                color: esVendedor ? Colors.white70 : Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: 14,
+              ),
+            ),
+            style: ElevatedButton.styleFrom(
+              backgroundColor:
+                  esVendedor ? Colors.grey.shade400 : const Color(0xFFD81B60),
+              disabledBackgroundColor: Colors.grey.shade400,
+              elevation: 0,
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(24),
+              ),
+            ),
+          );
+        },
       ),
     );
   }
@@ -259,17 +287,10 @@ class _FavoritesViewState extends State<FavoritesView> {
                 Positioned(
                   top: 12,
                   right: 12,
-                  child: GestureDetector(
-                    onTap: () => FavoritosService.instance.toggle(articulo.id),
-                    child: const CircleAvatar(
-                      backgroundColor: Colors.white,
-                      radius: 18,
-                      child: Icon(
-                        Icons.favorite,
-                        color: Color(0xFFD81B60),
-                        size: 20,
-                      ),
-                    ),
+                  child: FavoriteHeartButton(
+                    articuloId: articulo.id,
+                    iconSize: 20,
+                    radius: 18,
                   ),
                 ),
               ],

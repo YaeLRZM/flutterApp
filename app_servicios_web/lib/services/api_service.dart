@@ -17,6 +17,11 @@ import 'package:shared_preferences/shared_preferences.dart';
 class ApiService {
   static const String _tokenKey = 'jwt_token';
   static const String _expiresAtKey = 'jwt_expires_at_ms';
+  static const String _roleKey = 'user_role';
+
+  /// Mensaje único para acciones de catálogo bloqueadas a vendedores.
+  static const String msgAccionNoPermitidaVendedor =
+      'Acción no permitida para cuentas vendedor';
 
   /// Margen para refrescar antes del `exp` real (evita carrera al filo).
   static const Duration _refreshSkew = Duration(minutes: 2);
@@ -85,11 +90,13 @@ class ApiService {
     try {
       await _secure.delete(key: _tokenKey);
       await _secure.delete(key: _expiresAtKey);
+      await _secure.delete(key: _roleKey);
     } catch (_) {}
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.remove(_tokenKey);
       await prefs.remove(_expiresAtKey);
+      await prefs.remove(_roleKey);
     } catch (_) {}
   }
 
@@ -100,6 +107,109 @@ class ApiService {
           DateTime.now().millisecondsSinceEpoch + (expiresInSeconds * 1000);
       await _secure.write(key: _expiresAtKey, value: expiresAtMs.toString());
     }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Rol autenticado (fuente central para UI y guards de catálogo)
+  // ---------------------------------------------------------------------------
+
+  /// Normaliza un string de rol (login /me / Spatie).
+  static String normalizeRole(String? raw) {
+    return (raw ?? '').toLowerCase().trim();
+  }
+
+  /// Extrae rol desde payload de login o mapa de usuario de /me.
+  static String roleFromPayload(dynamic payload) {
+    if (payload is! Map) return '';
+    final map = Map<String, dynamic>.from(payload);
+
+    final top = normalizeRole(
+      (map['role'] ?? map['rol'] ?? map['user_role'])?.toString(),
+    );
+    if (top.isNotEmpty) return top;
+
+    final user = map['user'];
+    if (user is Map) {
+      final nested = roleFromUserMap(user);
+      if (nested.isNotEmpty) return nested;
+    }
+
+    return roleFromUserMap(map);
+  }
+
+  /// Extrae rol desde el objeto user (GET /me o login.user).
+  static String roleFromUserMap(dynamic user) {
+    if (user is! Map) return '';
+    final map = Map<String, dynamic>.from(user);
+
+    final direct = normalizeRole(
+      (map['role'] ?? map['rol'] ?? map['user_role'])?.toString(),
+    );
+    if (direct.isNotEmpty) return direct;
+
+    final roles = map['roles'];
+    if (roles is List && roles.isNotEmpty) {
+      final first = roles.first;
+      if (first is Map) {
+        final n = normalizeRole(
+          (first['name'] ?? first['nombre'] ?? first['role'])?.toString(),
+        );
+        if (n.isNotEmpty) return n;
+      } else {
+        final n = normalizeRole(first?.toString());
+        if (n.isNotEmpty) return n;
+      }
+    }
+    return '';
+  }
+
+  static bool isVendedorRoleName(String? role) {
+    final r = normalizeRole(role);
+    return r == 'vendedor' || r.contains('seller');
+  }
+
+  Future<void> saveRole(String? role) async {
+    final r = normalizeRole(role);
+    try {
+      if (r.isEmpty) {
+        await _secure.delete(key: _roleKey);
+      } else {
+        await _secure.write(key: _roleKey, value: r);
+      }
+    } catch (_) {}
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (r.isEmpty) {
+        await prefs.remove(_roleKey);
+      } else {
+        await prefs.setString(_roleKey, r);
+      }
+    } catch (_) {}
+  }
+
+  /// Rol guardado en sesión local (vacío si invitado / sin dato).
+  Future<String> getRole() async {
+    try {
+      final secure = await _secure.read(key: _roleKey);
+      if (secure != null && secure.trim().isNotEmpty) {
+        return normalizeRole(secure);
+      }
+    } catch (_) {}
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final legacy = prefs.getString(_roleKey);
+      if (legacy != null && legacy.trim().isNotEmpty) {
+        final r = normalizeRole(legacy);
+        await saveRole(r);
+        return r;
+      }
+    } catch (_) {}
+    return '';
+  }
+
+  /// true si la sesión actual es de vendedor (catálogo de compra bloqueado).
+  Future<bool> isVendedor() async {
+    return isVendedorRoleName(await getRole());
   }
 
   Future<void> _saveSessionFromAuthResponse(Map<String, dynamic> data) async {
@@ -117,6 +227,12 @@ class ApiService {
     }
 
     await _persistToken(token, expiresInSeconds: expiresIn);
+
+    final role = roleFromPayload(data);
+    if (role.isNotEmpty) {
+      await saveRole(role);
+    }
+
     _redirectingToLogin = false;
   }
 
@@ -561,13 +677,23 @@ class ApiService {
       }
 
       final data = jsonDecode(response.body);
+      Map<String, dynamic>? userMap;
       if (data is Map<String, dynamic>) {
-        return {'success': true, 'user': data};
+        userMap = data;
+      } else if (data is Map) {
+        userMap = Map<String, dynamic>.from(data);
       }
-      if (data is Map) {
-        return {'success': true, 'user': Map<String, dynamic>.from(data)};
+      if (userMap == null) {
+        return {'success': false, 'message': 'Respuesta de perfil inválida'};
       }
-      return {'success': false, 'message': 'Respuesta de perfil inválida'};
+
+      // Persistir rol para guards de catálogo (login también lo guarda).
+      final role = roleFromUserMap(userMap);
+      if (role.isNotEmpty) {
+        await saveRole(role);
+      }
+
+      return {'success': true, 'user': userMap, 'role': role};
     } catch (e) {
       return {'success': false, 'message': 'Error de conexión: $e'};
     }

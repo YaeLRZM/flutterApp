@@ -26,6 +26,8 @@ class _DetallePedidoViewState extends State<DetallePedidoView> {
   String? _error;
   Venta? _venta;
   Timer? _tick;
+  Timer? _poll;
+  bool _reloading = false;
 
   @override
   void initState() {
@@ -33,34 +35,55 @@ class _DetallePedidoViewState extends State<DetallePedidoView> {
     _cargar();
     _tick = Timer.periodic(const Duration(seconds: 1), (_) {
       if (!mounted) return;
-      if (_venta?.sePuedeCancelar == true) setState(() {});
+      if (_venta?.estadoClave != 'pendiente') return;
+      setState(() {});
+      final left = _venta?.tiempoRestanteAutoCompletar;
+      if (left != null && left == Duration.zero) {
+        _cargar(silencioso: true);
+      }
+    });
+    // Misma fuente de verdad que el listado: GET detalle dispara completarVencidas.
+    _poll = Timer.periodic(const Duration(seconds: 15), (_) {
+      if (!mounted || _reloading) return;
+      if (_venta?.estadoClave == 'pendiente') {
+        _cargar(silencioso: true);
+      }
     });
   }
 
   @override
   void dispose() {
     _tick?.cancel();
+    _poll?.cancel();
     super.dispose();
   }
 
-  Future<void> _cargar() async {
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
+  Future<void> _cargar({bool silencioso = false}) async {
+    if (_reloading) return;
+    _reloading = true;
+    if (!silencioso && mounted) {
+      setState(() {
+        _loading = true;
+        _error = null;
+      });
+    }
     try {
       final v = await _ventaService.fetchVentaPorId(widget.ventaId);
       if (!mounted) return;
       setState(() {
         _venta = v;
         _loading = false;
+        _error = null;
       });
     } catch (e) {
       if (!mounted) return;
+      if (silencioso) return;
       setState(() {
         _error = e.toString().replaceFirst('Exception: ', '');
         _loading = false;
       });
+    } finally {
+      _reloading = false;
     }
   }
 
@@ -186,16 +209,54 @@ class _DetallePedidoViewState extends State<DetallePedidoView> {
               ],
             ),
           ),
-          if (v.sePuedeCancelar) ...[
+          if (v.debeMostrarContadorConfirmacion) ...[
             const SizedBox(height: 12),
-            Text(
-              v.mensajeTiempoConfirmacion,
-              style: const TextStyle(
-                fontSize: 13,
-                color: Color(0xFFE65100),
-                height: 1.4,
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFF3E0),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: const Color(0xFFFFCC80)),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(
+                    Icons.timer_outlined,
+                    size: 18,
+                    color: Color(0xFFE65100),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      v.mensajeTiempoConfirmacion().trim().isEmpty
+                          ? 'Se completará automáticamente'
+                          : v.mensajeTiempoConfirmacion(),
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: Color(0xFFE65100),
+                        height: 1.4,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  if (v.relojRestanteTexto != null) ...[
+                    const SizedBox(width: 8),
+                    Text(
+                      v.relojRestanteTexto!,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w900,
+                        color: Color(0xFFE65100),
+                      ),
+                    ),
+                  ],
+                ],
               ),
             ),
+          ],
+          if (v.sePuedeCancelar) ...[
             const SizedBox(height: 16),
             SizedBox(
               width: double.infinity,

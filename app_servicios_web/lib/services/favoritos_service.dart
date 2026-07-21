@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'api_service.dart';
+
 /// Favoritos en memoria + **persistencia local durable**.
 ///
 /// - Invitado: `favoritos_guest_v1`
@@ -10,6 +12,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 ///
 /// Merge al login: si el usuario no tiene favoritos y el invitado sí,
 /// se migran al usuario.
+///
+/// Cuentas **vendedor** no pueden marcar/desmarcar favoritos (guard central).
 class FavoritosService extends ChangeNotifier {
   FavoritosService._();
   static final FavoritosService instance = FavoritosService._();
@@ -98,7 +102,13 @@ class FavoritosService extends ChangeNotifier {
     await _writeSet(_storageKey(_ownerUserId), _favoritos);
   }
 
+  /// Alterna favorito. Lanza si el rol autenticado es vendedor (sin mutar ni persistir).
   Future<void> toggle(int articuloId) async {
+    if (await ApiService().isVendedor()) {
+      throw Exception(ApiService.msgAccionNoPermitidaVendedor);
+    }
+    if (articuloId <= 0) return;
+
     if (_favoritos.contains(articuloId)) {
       _favoritos.remove(articuloId);
     } else {

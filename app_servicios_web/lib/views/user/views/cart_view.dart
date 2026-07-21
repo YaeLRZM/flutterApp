@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../../config/data_config.dart';
 import '../../../models/articulo.dart';
+import '../../../services/api_service.dart';
 import '../../../services/articulo_service.dart';
 import '../../../services/carrito_service.dart';
 import '../../../widgets/app_ui.dart';
@@ -194,8 +195,13 @@ class _CartViewState extends State<CartView> {
     });
   }
 
-  void _continuarCompra() {
+  Future<void> _continuarCompra() async {
     if (_articulos.isEmpty) return;
+    if (await ApiService().isVendedor()) {
+      if (!mounted) return;
+      AppUi.showAccionNoPermitidaVendedor(context);
+      return;
+    }
     if (_multiTienda) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -209,6 +215,7 @@ class _CartViewState extends State<CartView> {
       );
       return;
     }
+    if (!mounted) return;
     Navigator.push(
       context,
       MaterialPageRoute(

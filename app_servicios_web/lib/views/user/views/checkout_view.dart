@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../models/articulo.dart';
+import '../../../services/api_service.dart';
 import '../../../services/articulo_service.dart';
 import '../../../widgets/app_ui.dart';
 import 'payment_processing_view.dart';
@@ -75,8 +76,14 @@ class _CheckoutViewState extends State<CheckoutView> {
 
   bool get _multiTienda => _tiendaIds.length > 1;
 
-  void _continuarAPagoSimulado() {
+  Future<void> _continuarAPagoSimulado() async {
     if (_articulos.isEmpty) return;
+
+    if (await ApiService().isVendedor()) {
+      if (!mounted) return;
+      AppUi.showAccionNoPermitidaVendedor(context);
+      return;
+    }
 
     if (_multiTienda) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -95,6 +102,7 @@ class _CheckoutViewState extends State<CheckoutView> {
       for (final a in _articulos) a.id: _cantidadDe(a.id),
     };
 
+    if (!mounted) return;
     Navigator.push(
       context,
       MaterialPageRoute(

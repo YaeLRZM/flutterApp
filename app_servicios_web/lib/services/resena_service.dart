@@ -59,6 +59,13 @@ class ResenaService {
     String? comentario,
     bool alreadyRetried = false,
   }) async {
+    if (await ApiService().isVendedor()) {
+      return {
+        'success': false,
+        'message': ApiService.msgAccionNoPermitidaVendedor,
+      };
+    }
+
     final headers = await ApiService().getAuthHeaders();
     final response = await http.post(
       Uri.parse('${ApiService.baseUrl}/resenas'),

@@ -258,6 +258,11 @@ class CarritoService extends ChangeNotifier {
   Future<void> agregar(int articuloId, {int cantidad = 1}) async {
     if (cantidad <= 0) return;
 
+    // Guard central: cuentas vendedor no usan el carrito de compra.
+    if (await ApiService().isVendedor()) {
+      throw Exception(ApiService.msgAccionNoPermitidaVendedor);
+    }
+
     if (_ownerUserId == null) {
       _cantidades[articuloId] = (_cantidades[articuloId] ?? 0) + cantidad;
       notifyListeners();

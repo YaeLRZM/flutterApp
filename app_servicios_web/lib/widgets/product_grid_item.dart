@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/articulo.dart';
+import 'favorite_heart_button.dart';
 
 class ProductGridItem extends StatelessWidget {
   final Articulo articulo;
@@ -44,17 +45,12 @@ class ProductGridItem extends StatelessWidget {
                   Positioned(
                     top: 8,
                     right: 8,
-                    child: GestureDetector(
-                      onTap: onFavoriteToggle,
-                      child: CircleAvatar(
-                        radius: 14,
-                        backgroundColor: Colors.white,
-                        child: Icon(
-                          isFavorite ? Icons.favorite : Icons.favorite_border,
-                          size: 16,
-                          color: isFavorite ? Colors.pink : Colors.black38,
-                        ),
-                      ),
+                    // Guard vendedor + toggle central (ignora onFavoriteToggle legacy).
+                    child: FavoriteHeartButton(
+                      articuloId: articulo.id,
+                      iconSize: 16,
+                      radius: 14,
+                      inactiveColor: Colors.black38,
                     ),
                   ),
                 ],
