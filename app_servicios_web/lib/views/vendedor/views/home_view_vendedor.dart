@@ -4,6 +4,7 @@ import '../../../services/api_service.dart';
 import '../../../services/articulo_service.dart';
 import '../../../services/venta_service.dart';
 import '../../../widgets/app_ui.dart';
+import 'informe_ventas_view.dart';
 
 /// Panel de vendedor: solo datos reales (me + productos + conteo de ventas).
 /// Sin métricas inventadas. Accesos rápidos a módulos reales.
@@ -122,8 +123,11 @@ class _HomeViewVendedorState extends State<HomeViewVendedor> {
     }
   }
 
-  void _proximaVersion(String feature) {
-    AppUi.showProximamente(context, feature: feature);
+  void _abrirInformeVentas() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const InformeVentasView()),
+    );
   }
 
   @override
@@ -236,13 +240,13 @@ class _HomeViewVendedorState extends State<HomeViewVendedor> {
             const SizedBox(height: 20),
 
             InkWell(
-              onTap: () => _proximaVersion('Analítica'),
+              onTap: _abrirInformeVentas,
               borderRadius: BorderRadius.circular(16),
-              child: _buildComingSoonCard(
-                icon: Icons.bar_chart_outlined,
-                title: 'Analítica',
+              child: _buildAccessCard(
+                icon: Icons.summarize_outlined,
+                title: 'Informe de ventas',
                 message:
-                    'Pronto: visitas y tendencias de tu tienda.',
+                    'Consulta el estado real de tus ventas y exporta tu informe.',
               ),
             ),
             const SizedBox(height: 20),
@@ -265,7 +269,8 @@ class _HomeViewVendedorState extends State<HomeViewVendedor> {
                   Text(
                     '• Productos — crear, editar, stock, publicar/ocultar, imagen URL\n'
                     '• Mi tienda — ver y editar nombre/descripción\n'
-                    '• Ventas — listado y detalle por tienda',
+                    '• Ventas — listado y detalle por tienda\n'
+                    '• Informe de ventas — resumen real y exportación PDF',
                     style: TextStyle(
                       fontSize: 13,
                       color: secondaryText,
@@ -368,7 +373,7 @@ class _HomeViewVendedorState extends State<HomeViewVendedor> {
     );
   }
 
-  Widget _buildComingSoonCard({
+  Widget _buildAccessCard({
     required IconData icon,
     required String title,
     required String message,
