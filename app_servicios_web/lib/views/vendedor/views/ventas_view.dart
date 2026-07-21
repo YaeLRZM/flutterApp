@@ -56,10 +56,14 @@ class _VentasViewState extends State<VentasView> {
     }
   }
 
-  /// Solo tintas para valores de `estado` que el seed/API ya usa.
+  /// Tintas por estado de venta.
   /// Si llega otro valor, se muestra el texto tal cual (sin inventar significado).
   Color _estadoColor(String estado) {
     switch (estado.toLowerCase().trim()) {
+      case 'pendiente':
+        return const Color(0xFFE65100);
+      case 'cancelada':
+        return const Color(0xFF6D4C41);
       case 'completada':
         return const Color(0xFF2ECC71);
       case 'cancelada':
@@ -114,7 +118,7 @@ class _VentasViewState extends State<VentasView> {
           ),
           const SizedBox(height: 6),
           const Text(
-            'Ventas de tu tienda (API real). Toca una para ver el detalle.',
+            'Ventas de tu tienda. Toca una para ver el detalle.',
             style: TextStyle(fontSize: 13, color: secondaryText),
           ),
           const SizedBox(height: 20),
@@ -216,9 +220,9 @@ class _VentasViewState extends State<VentasView> {
   }
 
   Widget _buildVentaCard(Venta v) {
-    final estado = v.estado.trim();
-    final tieneEstado = estado.isNotEmpty;
-    final color = _estadoColor(estado);
+    final estado = v.estadoEtiqueta;
+    final tieneEstado = v.estado.trim().isNotEmpty;
+    final color = _estadoColor(v.estado);
 
     return Material(
       color: Colors.transparent,
@@ -286,14 +290,14 @@ class _VentasViewState extends State<VentasView> {
                 ),
               ),
               const SizedBox(height: 10),
-              _kv('created_at', _fmtDate(v.createdAt)),
-              if (v.userId > 0) _kv('user_id (cliente)', '#${v.userId}'),
+              _kv('Fecha', _fmtDate(v.createdAt)),
+              if (v.userId > 0) _kv('Cliente', 'Cliente #${v.userId}'),
               _kv(
-                'detalle_ventas',
+                'Artículos',
                 v.detalleCount > 0 ? '${v.detalleCount}' : '0',
               ),
               if (v.formaPagoId != null && v.formaPagoId! > 0)
-                _kv('forma_pago_id', '#${v.formaPagoId}'),
+                _kv('Forma de pago', v.etiquetaFormaPago),
               const SizedBox(height: 4),
               const Text(
                 'Toca para ver detalle',
@@ -417,7 +421,7 @@ class _VentaDetalleSheetState extends State<_VentaDetalleSheet> {
               ),
               const SizedBox(height: 14),
               Text(
-                'Detalle venta #${widget.ventaId}',
+                'Detalle de la venta #${widget.ventaId}',
                 style: const TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.w800,
@@ -446,21 +450,18 @@ class _VentaDetalleSheetState extends State<_VentaDetalleSheet> {
   }
 
   Widget _buildDetalle(Venta v) {
-    final estado = v.estado.trim().isEmpty ? 'No disponible' : v.estado.trim();
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _row('id', '#${v.id}'),
-        _row('estado', estado),
-        _row('total', _fmtMoney(v.total)),
-        _row('created_at', _fmtDate(v.createdAt)),
-        // Nombres solo si el backend los envió; si no, fallback #id.
-        _row('cliente', v.etiquetaCliente),
-        _row('forma_pago', v.etiquetaFormaPago),
+        _row('Venta', 'Venta #${v.id}'),
+        _row('Estado', v.estadoEtiqueta),
+        _row('Total', _fmtMoney(v.total)),
+        _row('Fecha', _fmtDate(v.createdAt)),
+        _row('Cliente', v.etiquetaCliente),
+        _row('Forma de pago', v.etiquetaFormaPago),
         const SizedBox(height: 16),
         const Text(
-          'detalle_ventas',
+          'Artículos vendidos',
           style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
         ),
         const SizedBox(height: 8),
@@ -472,7 +473,7 @@ class _VentaDetalleSheetState extends State<_VentaDetalleSheet> {
               borderRadius: BorderRadius.circular(12),
             ),
             child: const Text(
-              'Sin líneas de detalle.',
+              'No hay artículos en esta venta.',
               style: TextStyle(color: secondaryText, fontSize: 13),
             ),
           )

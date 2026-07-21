@@ -37,6 +37,9 @@ class _UserLayoutState extends State<UserLayout> {
   /// Query de búsqueda del catálogo (barra superior → Home).
   String _catalogSearchQuery = '';
 
+  /// Invalida el State de Mis compras al reentrar (fuerza GET /api/ventas).
+  int _misComprasNonce = 0;
+
   void _toggleDrawer() {
     setState(() {
       _isDrawerOpen = !_isDrawerOpen;
@@ -46,6 +49,14 @@ class _UserLayoutState extends State<UserLayout> {
   void _goToCart() {
     setState(() {
       _activePage = 'cart';
+      if (_isDrawerOpen) _isDrawerOpen = false;
+    });
+  }
+
+  void _goToMisCompras() {
+    setState(() {
+      _activePage = 'mis_compras';
+      _misComprasNonce++;
       if (_isDrawerOpen) _isDrawerOpen = false;
     });
   }
@@ -87,7 +98,7 @@ class _UserLayoutState extends State<UserLayout> {
       case 'configuracion':
         return 'Configuración';
       case 'favoritos':
-        return 'Favoritos (local)';
+        return 'Favoritos';
       default:
         return 'Ixé Moda';
     }
@@ -127,11 +138,12 @@ class _UserLayoutState extends State<UserLayout> {
 
       // Vistas del menú lateral
       case 'mis_compras':
-        return const MisComprasView();
+        // Key por nonce: cada visita vuelve a pedir compras reales al API.
+        return MisComprasView(key: ValueKey('mis_compras_$_misComprasNonce'));
       case 'notificaciones':
         return NotificacionesView(
           onIrAInicio: _irAInicio,
-          onIrAMisCompras: () => setState(() => _activePage = 'mis_compras'),
+          onIrAMisCompras: _goToMisCompras,
         );
       case 'mis_opiniones':
         return MisOpinionesView(onIrAInicio: _irAInicio);
@@ -165,8 +177,14 @@ class _UserLayoutState extends State<UserLayout> {
               _toggleDrawer(); // Cierra la animación 3D primero
 
               Future.delayed(const Duration(milliseconds: 300), () {
+                if (!mounted) return;
                 // AHORA TODAS LAS RUTAS SE CARGAN ADENTRO DEL LAYOUT
-                setState(() => _activePage = route);
+                setState(() {
+                  _activePage = route;
+                  if (route == 'mis_compras') {
+                    _misComprasNonce++;
+                  }
+                });
               });
             },
           ),

@@ -227,7 +227,7 @@ class _HomeViewVendedorState extends State<HomeViewVendedor> {
               title: 'VENTAS',
               value: '$_totalVentas',
               subtitle:
-                  'Suma totales: \$${_sumaVentas.toStringAsFixed(2)} (API tienda)',
+                  'Suma de totales: \$${_sumaVentas.toStringAsFixed(2)}',
               icon: Icons.receipt_long_outlined,
               iconBg: const Color(0xFFE3F2FD),
               iconColor: const Color(0xFF1565C0),
@@ -242,7 +242,7 @@ class _HomeViewVendedorState extends State<HomeViewVendedor> {
                 icon: Icons.bar_chart_outlined,
                 title: 'Analítica',
                 message:
-                    'Próxima versión: visitas y tendencias (sin métricas inventadas).',
+                    'Pronto: visitas y tendencias de tu tienda.',
               ),
             ),
             const SizedBox(height: 20),

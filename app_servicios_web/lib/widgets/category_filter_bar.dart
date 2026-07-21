@@ -24,8 +24,9 @@ class CategoryFilterBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final visibles = categorias.take(kMaxCategoriasMenu).toList();
 
+    // Altura fija holgada: texto + subrayado (~3 px overflow antes con h=40).
     return SizedBox(
-      height: 40,
+      height: 44,
       child: ListView(
         scrollDirection: Axis.horizontal,
         children: [
@@ -37,11 +38,14 @@ class CategoryFilterBar extends StatelessWidget {
                 onTap: () => onSelect(categoria.id),
                 behavior: HitTestBehavior.opaque,
                 child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
                       categoria.nombre,
                       style: TextStyle(
+                        fontSize: 14,
+                        height: 1.2,
                         fontWeight: isSelected
                             ? FontWeight.bold
                             : FontWeight.w500,
@@ -50,13 +54,14 @@ class CategoryFilterBar extends StatelessWidget {
                             : Colors.black87,
                       ),
                     ),
-                    if (isSelected)
-                      Container(
-                        margin: const EdgeInsets.only(top: 6),
-                        height: 2,
-                        width: 20,
-                        color: const Color(0xFFD81B60),
-                      ),
+                    const SizedBox(height: 4),
+                    Container(
+                      height: 2,
+                      width: 20,
+                      color: isSelected
+                          ? const Color(0xFFD81B60)
+                          : Colors.transparent,
+                    ),
                   ],
                 ),
               ),

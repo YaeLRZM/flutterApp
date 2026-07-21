@@ -61,7 +61,9 @@ class GlobalTopBar extends StatefulWidget implements PreferredSizeWidget {
 
   @override
   Size get preferredSize {
-    return Size.fromHeight(showSearch ? 130 : 85);
+    // Altura del contenido del bar (Scaffold suma el safe-area/status bar aparte).
+    // Antes: 130 dejaba ~3–7 px de overflow (title row ~48 + search 45 + paddings).
+    return Size.fromHeight(showSearch ? 140 : 88);
   }
 
   @override
@@ -116,12 +118,15 @@ class _GlobalTopBarState extends State<GlobalTopBar> {
     final safeTop = MediaQuery.of(context).padding.top;
     final hasQuery = _searchController.text.trim().isNotEmpty;
 
+    // safeTop se pinta DENTRO del espacio que Scaffold reserva
+    // (preferredSize + padding.top). El bloque de contenido (sin safeTop)
+    // debe caber en preferredSize para no desbordar.
     return Container(
       padding: EdgeInsets.only(
-        top: safeTop + 12,
+        top: safeTop + 10,
         left: 20,
         right: 20,
-        bottom: widget.showSearch ? 20 : 16,
+        bottom: widget.showSearch ? 12 : 12,
       ),
       decoration: const BoxDecoration(
         color: Color(0xFFD81B60),
@@ -131,75 +136,94 @@ class _GlobalTopBarState extends State<GlobalTopBar> {
         ),
       ),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Expanded(
-                child: Text(
-                  widget.title,
-                  style: GoogleFonts.poppins(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w700,
-                    color: Colors.white,
+          SizedBox(
+            height: 40,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Text(
+                    widget.title,
+                    style: GoogleFonts.poppins(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.white,
+                      height: 1.1,
+                    ),
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  overflow: TextOverflow.ellipsis,
                 ),
-              ),
-              IconButton(
-                tooltip: 'Notificaciones',
-                onPressed: _onBellTap,
-                icon: const Icon(
-                  Icons.notifications_none_outlined,
-                  color: Colors.white,
-                  size: 28,
+                IconButton(
+                  tooltip: 'Notificaciones',
+                  onPressed: _onBellTap,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(
+                    minWidth: 40,
+                    minHeight: 40,
+                  ),
+                  icon: const Icon(
+                    Icons.notifications_none_outlined,
+                    color: Colors.white,
+                    size: 26,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
           if (widget.showSearch) ...[
-            const SizedBox(height: 12),
-            Container(
-              height: 45,
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.2),
-                borderRadius: BorderRadius.circular(25),
-              ),
-              child: TextField(
-                controller: _searchController,
-                style: const TextStyle(color: Colors.white),
-                textInputAction: TextInputAction.search,
-                onSubmitted: (value) =>
-                    widget.onSearchSubmitted?.call(value.trim()),
-                decoration: InputDecoration(
-                  hintText: 'Buscar huipil, rebozo, tienda…',
-                  hintStyle: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.7),
-                    fontSize: 14,
+            const SizedBox(height: 8),
+            SizedBox(
+              height: 42,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(25),
+                ),
+                alignment: Alignment.center,
+                child: TextField(
+                  controller: _searchController,
+                  style: const TextStyle(color: Colors.white, fontSize: 14),
+                  textInputAction: TextInputAction.search,
+                  onSubmitted: (value) =>
+                      widget.onSearchSubmitted?.call(value.trim()),
+                  decoration: InputDecoration(
+                    isDense: true,
+                    hintText: 'Buscar huipil, rebozo, tienda…',
+                    hintStyle: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.7),
+                      fontSize: 14,
+                    ),
+                    prefixIcon: Icon(
+                      Icons.search,
+                      color: Colors.white.withValues(alpha: 0.85),
+                      size: 22,
+                    ),
+                    suffixIcon: hasQuery
+                        ? IconButton(
+                            tooltip: 'Limpiar búsqueda',
+                            onPressed: _clearSearch,
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(
+                              minWidth: 36,
+                              minHeight: 36,
+                            ),
+                            icon: Icon(
+                              Icons.close,
+                              color: Colors.white.withValues(alpha: 0.9),
+                              size: 18,
+                            ),
+                          )
+                        : null,
+                    border: InputBorder.none,
+                    contentPadding: const EdgeInsets.symmetric(vertical: 10),
                   ),
-                  prefixIcon: Icon(
-                    Icons.search,
-                    color: Colors.white.withValues(alpha: 0.85),
-                  ),
-                  suffixIcon: hasQuery
-                      ? IconButton(
-                          tooltip: 'Limpiar búsqueda',
-                          onPressed: _clearSearch,
-                          icon: Icon(
-                            Icons.close,
-                            color: Colors.white.withValues(alpha: 0.9),
-                            size: 20,
-                          ),
-                        )
-                      : null,
-                  border: InputBorder.none,
-                  contentPadding: const EdgeInsets.symmetric(vertical: 12),
                 ),
               ),
             ),
-          ] else
-            const SizedBox.shrink(),
+          ],
         ],
       ),
     );

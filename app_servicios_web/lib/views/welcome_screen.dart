@@ -196,7 +196,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                                     );
                                   },
                                   child: Text(
-                                    'Entrar sin login (modo prueba)',
+                                    'Explorar catálogo sin cuenta',
                                     style: TextStyle(
                                       fontSize: 13,
                                       fontWeight: FontWeight.w600,

@@ -239,7 +239,7 @@ class _ProductDetailViewState extends State<ProductDetailView> {
     CarritoService.instance.agregar(articulo.id);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('“${articulo.nombre}” agregado al carrito (local)'),
+        content: Text('“${articulo.nombre}” agregado al carrito'),
         action: SnackBarAction(
           label: 'OK',
           onPressed: () {},
@@ -859,7 +859,7 @@ class _ProductDetailViewState extends State<ProductDetailView> {
           child: _featureBadge(
             icon: Icons.inventory_2_outlined,
             titulo: stockLabel,
-            subtitulo: 'Dato del artículo',
+            subtitulo: 'Disponibilidad',
           ),
         ),
         const SizedBox(width: 12),
@@ -867,7 +867,7 @@ class _ProductDetailViewState extends State<ProductDetailView> {
           child: _featureBadge(
             icon: Icons.visibility_outlined,
             titulo: dispLabel,
-            subtitulo: 'Sin envíos en app aún',
+            subtitulo: 'Envíos próximamente',
           ),
         ),
       ],

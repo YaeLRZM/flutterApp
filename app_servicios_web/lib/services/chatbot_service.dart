@@ -48,13 +48,13 @@ class ChatbotService {
           .timeout(const Duration(seconds: 20));
     } catch (e) {
       throw ChatbotException(
-        'No se pudo contactar al servidor ($originUrl). ¿Laravel está en marcha?',
+        'No se pudo contactar al asistente. Revisa tu conexión e intenta de nuevo.',
       );
     }
 
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw ChatbotException(
-        'Error del servidor (${response.statusCode}). Intenta de nuevo.',
+        'El asistente no está disponible por el momento. Intenta de nuevo.',
       );
     }
 

@@ -103,163 +103,165 @@ class _PaymentProcessingViewState extends State<PaymentProcessingView> {
 
   @override
   Widget build(BuildContext context) {
+    // Contenido de la tarjeta: badge + textos + (loader | botones).
+    // En viewports bajos (web estrecho) el Column fijo desbordaba ~46px.
+    final cardBody = Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        AppStatusBadge.pagoSimulado(),
+        const SizedBox(height: 20),
+        const Text(
+          'Esta app usa un flujo de pago de prueba; '
+          'no se realizará ningún cobro real.',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 13,
+            color: Colors.black54,
+            height: 1.4,
+          ),
+        ),
+        const SizedBox(height: 28),
+        if (_registrandoCompra) ...[
+          const CircularProgressIndicator(color: Color(0xFFD81B60)),
+          const SizedBox(height: 20),
+          const Text(
+            'Registrando tu compra…',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+          ),
+        ] else if (_esperando) ...[
+          const CircularProgressIndicator(color: Color(0xFFD81B60)),
+          const SizedBox(height: 20),
+          const Text(
+            'Procesando pago de prueba…',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Total estimado: \$${widget.totalEstimado.toStringAsFixed(2)}',
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontSize: 13, color: Colors.black45),
+          ),
+        ] else ...[
+          const Text(
+            'Elige el resultado de la prueba',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'No se conecta a un banco. Solo eliges si la prueba termina bien o no.',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 12, color: Colors.black54),
+          ),
+          if (_errorRegistro != null) ...[
+            const SizedBox(height: 12),
+            Text(
+              _errorRegistro!,
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Colors.red, fontSize: 13),
+            ),
+          ],
+          const SizedBox(height: 24),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: _registrandoCompra ? null : _resolverExito,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF00BFA5),
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                ),
+              ),
+              child: const Text(
+                'Completar compra de prueba',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton(
+              onPressed: _registrandoCompra ? null : _irADenegado,
+              style: OutlinedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                side: const BorderSide(color: Color(0xFFC62828)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                ),
+              ),
+              child: const Text(
+                'Cancelar prueba',
+                style: TextStyle(
+                  color: Color(0xFFC62828),
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
+
     return PopScope(
       canPop: !_registrandoCompra && !_esperando,
       child: Scaffold(
         backgroundColor: const Color(0xFFF8F5F2),
         body: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-            child: Column(
-              children: [
-                Expanded(
-                  child: Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(24),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(28),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.03),
-                          blurRadius: 16,
-                          offset: const Offset(0, 6),
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        AppStatusBadge.pagoSimulado(),
-                        const SizedBox(height: 20),
-                        const Text(
-                          'Esta app usa un flujo de pago de prueba; '
-                          'no se realizará ningún cobro real.',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: Colors.black54,
-                            height: 1.4,
-                          ),
-                        ),
-                        const SizedBox(height: 28),
-                        if (_registrandoCompra) ...[
-                          const CircularProgressIndicator(
-                            color: Color(0xFFD81B60),
-                          ),
-                          const SizedBox(height: 20),
-                          const Text(
-                            'Registrando compra en el servidor…',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ] else if (_esperando) ...[
-                          const CircularProgressIndicator(
-                            color: Color(0xFFD81B60),
-                          ),
-                          const SizedBox(height: 20),
-                          const Text(
-                            'Simulando pago de prueba…',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            'Total estimado: \$${widget.totalEstimado.toStringAsFixed(2)}',
-                            style: const TextStyle(
-                              fontSize: 13,
-                              color: Colors.black45,
-                            ),
-                          ),
-                        ] else ...[
-                          const Text(
-                            'Elige el resultado de la simulación',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          const Text(
-                            'No hay banco ni pasarela. Solo controlas el resultado de prueba.',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(fontSize: 12, color: Colors.black54),
-                          ),
-                          if (_errorRegistro != null) ...[
-                            const SizedBox(height: 12),
-                            Text(
-                              _errorRegistro!,
-                              textAlign: TextAlign.center,
-                              style: const TextStyle(
-                                color: Colors.red,
-                                fontSize: 13,
-                              ),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              return SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 16,
+                ),
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    minHeight: constraints.maxHeight - 32,
+                  ),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(24),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(28),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.03),
+                              blurRadius: 16,
+                              offset: const Offset(0, 6),
                             ),
                           ],
-                          const SizedBox(height: 24),
-                          SizedBox(
-                            width: double.infinity,
-                            child: ElevatedButton(
-                              onPressed: _resolverExito,
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFF00BFA5),
-                                padding: const EdgeInsets.symmetric(vertical: 14),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(20),
-                                ),
-                              ),
-                              child: const Text(
-                                'Simular éxito',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 10),
-                          SizedBox(
-                            width: double.infinity,
-                            child: OutlinedButton(
-                              onPressed: _irADenegado,
-                              style: OutlinedButton.styleFrom(
-                                padding: const EdgeInsets.symmetric(vertical: 14),
-                                side: const BorderSide(color: Color(0xFFC62828)),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(20),
-                                ),
-                              ),
-                              child: const Text(
-                                'Simular rechazo',
-                                style: TextStyle(
-                                  color: Color(0xFFC62828),
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
+                        ),
+                        // Sin Expanded/Column infinito: crece con el contenido
+                        // y el scroll evita RenderFlex overflow.
+                        child: cardBody,
+                      ),
+                      const SizedBox(height: 16),
+                      const Text(
+                        'IXÉ · PAGO DE PRUEBA SIN COBRO',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black38,
+                          letterSpacing: 1.2,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                const SizedBox(height: 16),
-                const Text(
-                  'IXÉ · FLUJO DE PRUEBA SIN COBRO',
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black38,
-                    letterSpacing: 1.2,
-                  ),
-                ),
-              ],
-            ),
+              );
+            },
           ),
         ),
       ),

@@ -90,7 +90,7 @@ class _CartViewState extends State<CartView> {
   void _vaciarCarrito() {
     CarritoService.instance.vaciar();
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Carrito vaciado (local)')),
+      const SnackBar(content: Text('Carrito vaciado')),
     );
   }
 
@@ -181,8 +181,8 @@ class _CartViewState extends State<CartView> {
                 border: Border.all(color: const Color(0xFFEF9A9A)),
               ),
               child: const Text(
-                'Hay productos de más de una tienda. La compra v1 solo '
-                'permite una tienda por compra: ajusta el carrito antes de continuar.',
+                'Hay productos de más de una tienda. Por ahora solo puedes '
+                'comprar de una tienda a la vez: ajusta el carrito antes de continuar.',
                 style: TextStyle(fontSize: 12, color: Color(0xFFB71C1C), height: 1.35),
               ),
             ),
@@ -267,8 +267,16 @@ class _CartViewState extends State<CartView> {
                   ? Image.network(
                       articulo.imagenUrl,
                       fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) =>
-                          ColoredBox(color: Colors.grey.shade300),
+                      // 404/seed Unsplash roto → placeholder, no rompe el checkout.
+                      errorBuilder: (_, __, ___) => ColoredBox(
+                        color: Colors.grey.shade300,
+                        child: const Center(
+                          child: Icon(
+                            Icons.image_not_supported_outlined,
+                            color: Colors.black38,
+                          ),
+                        ),
+                      ),
                     )
                   : ColoredBox(color: Colors.grey.shade300),
             ),

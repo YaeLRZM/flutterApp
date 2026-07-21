@@ -175,7 +175,7 @@ class AppStatusBadge extends StatelessWidget {
   }
 
   factory AppStatusBadge.pagoSimulado() {
-    return const AppStatusBadge(label: 'PAGO SIMULADO');
+    return const AppStatusBadge(label: 'PAGO DE PRUEBA');
   }
 
   @override

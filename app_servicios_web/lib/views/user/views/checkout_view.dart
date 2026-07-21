@@ -161,8 +161,8 @@ class _CheckoutViewState extends State<CheckoutView> {
         ),
         const SizedBox(height: 8),
         const Text(
-          'Siguiente paso: flujo de pago simulado (prueba). '
-          'No se cobrará dinero real. La compra en servidor se registra solo si la simulación resulta exitosa.',
+          'Siguiente paso: un pago de prueba. '
+          'No se cobrará dinero real. Tu compra solo se registra si eliges un resultado exitoso.',
           style: TextStyle(fontSize: 13, color: Colors.black54, height: 1.4),
         ),
         const SizedBox(height: 10),
@@ -174,7 +174,7 @@ class _CheckoutViewState extends State<CheckoutView> {
             borderRadius: BorderRadius.circular(10),
           ),
           child: const Text(
-            'PAGO SIMULADO · sin pasarela · sin cobro real',
+            'PAGO DE PRUEBA · sin cobro real',
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 11,
@@ -371,7 +371,7 @@ class _CheckoutViewState extends State<CheckoutView> {
           ),
           const SizedBox(height: 8),
           const Text(
-            'Sin envío ni pasarela. El total final lo define el servidor.',
+            'Sin envío en esta versión. El total final se confirma al completar la compra.',
             style: TextStyle(fontSize: 11, color: Colors.black45),
           ),
           const SizedBox(height: 20),
@@ -391,7 +391,7 @@ class _CheckoutViewState extends State<CheckoutView> {
                 elevation: 0,
               ),
               child: const Text(
-                'Continuar a pago simulado',
+                'Continuar al pago de prueba',
                 style: TextStyle(
                   color: Colors.white,
                   fontSize: 15,

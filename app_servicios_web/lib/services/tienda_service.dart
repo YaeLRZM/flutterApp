@@ -29,7 +29,11 @@ class TiendaService {
 
   /// Actualiza la tienda del vendedor autenticado.
   /// PUT /api/tiendas/{id} — backend exige ownership (no tiendas ajenas).
-  Future<Tienda> updateTienda(int id, Map<String, dynamic> fields) async {
+  Future<Tienda> updateTienda(
+    int id,
+    Map<String, dynamic> fields, {
+    bool alreadyRetried = false,
+  }) async {
     final headers = await ApiService().getAuthHeaders();
     final response = await http.put(
       Uri.parse('${ApiService.baseUrl}/tiendas/$id'),
@@ -37,6 +41,17 @@ class TiendaService {
       body: jsonEncode(fields),
     );
 
+    if (response.statusCode == 401) {
+      if (!alreadyRetried) {
+        final recovered = await ApiService().recoverFromUnauthorized();
+        if (recovered) {
+          return updateTienda(id, fields, alreadyRetried: true);
+        }
+      } else {
+        await ApiService().onUnauthorized();
+      }
+      throw Exception('Sesión expirada. Vuelve a iniciar sesión.');
+    }
     if (response.statusCode == 403) {
       throw Exception('No tienes permiso para editar esta tienda.');
     }

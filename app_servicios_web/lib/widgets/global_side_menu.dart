@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../services/api_service.dart';
+import '../services/local_session_store.dart';
 
 class GlobalSideMenu extends StatelessWidget {
   final VoidCallback onClose;
@@ -219,6 +220,8 @@ class GlobalSideMenu extends StatelessWidget {
   // Logout real: invalida token en API (si se puede) + borra JWT local.
   Future<void> _performLogout(BuildContext context) async {
     await ApiService().logout();
+    // Vuelve a carrito/favoritos de invitado (el del usuario queda en disco).
+    await LocalSessionStore.onGuest();
 
     if (context.mounted) {
       Navigator.pushNamedAndRemoveUntil(

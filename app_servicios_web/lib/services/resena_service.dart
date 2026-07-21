@@ -57,6 +57,7 @@ class ResenaService {
     required int articuloId,
     required int calificacion,
     String? comentario,
+    bool alreadyRetried = false,
   }) async {
     final headers = await ApiService().getAuthHeaders();
     final response = await http.post(
@@ -75,6 +76,26 @@ class ResenaService {
       final decoded = jsonDecode(response.body);
       if (decoded is Map) body = Map<String, dynamic>.from(decoded);
     } catch (_) {}
+
+    if (response.statusCode == 401) {
+      if (!alreadyRetried) {
+        final recovered = await ApiService().recoverFromUnauthorized();
+        if (recovered) {
+          return crearResena(
+            articuloId: articuloId,
+            calificacion: calificacion,
+            comentario: comentario,
+            alreadyRetried: true,
+          );
+        }
+      } else {
+        await ApiService().onUnauthorized();
+      }
+      return {
+        'success': false,
+        'message': 'Sesión expirada. Vuelve a iniciar sesión.',
+      };
+    }
 
     if (response.statusCode == 201 || response.statusCode == 200) {
       return {'success': true, 'data': body};

@@ -55,7 +55,7 @@ class DetalleVentaLinea {
     );
   }
 
-  /// Nombre del backend si existe; si no, fallback neutro.
+  /// Nombre del producto si viene en la respuesta; si no, etiqueta neutra.
   String get etiquetaArticulo {
     final n = articuloNombre?.trim();
     if (n != null && n.isNotEmpty) return n;
@@ -130,7 +130,7 @@ class Venta {
   String get etiquetaCliente {
     final n = userNombre?.trim();
     if (n != null && n.isNotEmpty) return n;
-    if (userId > 0) return 'Usuario #$userId';
+    if (userId > 0) return 'Cliente #$userId';
     return 'No disponible';
   }
 
@@ -138,10 +138,31 @@ class Venta {
     final n = formaPagoNombre?.trim();
     if (n != null && n.isNotEmpty) return n;
     if (formaPagoId != null && formaPagoId! > 0) {
-      return 'Forma de pago #$formaPagoId';
+      return 'Método #$formaPagoId';
     }
     return 'No disponible';
   }
+
+  /// Clave de estado normalizada (backend: pendiente|completada|cancelada).
+  String get estadoClave => estado.trim().toLowerCase();
+
+  /// Etiqueta legible para UI de producto.
+  String get estadoEtiqueta {
+    switch (estadoClave) {
+      case 'pendiente':
+        return 'Pendiente';
+      case 'completada':
+        return 'Completada';
+      case 'cancelada':
+        return 'Cancelada';
+      default:
+        final e = estado.trim();
+        return e.isEmpty ? 'Sin estado' : e;
+    }
+  }
+
+  /// Solo compras pendientes se pueden cancelar (regla backend).
+  bool get sePuedeCancelar => estadoClave == 'pendiente';
 }
 
 class VentasListResult {

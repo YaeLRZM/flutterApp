@@ -4,9 +4,7 @@ import '../../../models/venta.dart';
 import '../../../services/venta_service.dart';
 import '../../../widgets/app_ui.dart';
 
-/// Detalle de una **compra** del usuario (modelo Venta).
-/// Fuente real: GET /api/ventas/{id} (ownership por user_id).
-/// Nombre de archivo histórico `detalle_pedido_view`; semántica UI = compra.
+/// Detalle de una compra del usuario (GET /api/ventas/{id}).
 class DetallePedidoView extends StatefulWidget {
   final int ventaId;
 
@@ -17,12 +15,12 @@ class DetallePedidoView extends StatefulWidget {
 }
 
 class _DetallePedidoViewState extends State<DetallePedidoView> {
-  static const Color bugambilia = Color(0xFFD81B60);
   static const Color secondaryText = Color(0xFF5E6668);
 
   final _ventaService = VentaService();
 
   bool _loading = true;
+  bool _cancelando = false;
   String? _error;
   Venta? _venta;
 
@@ -50,6 +48,58 @@ class _DetallePedidoViewState extends State<DetallePedidoView> {
         _error = e.toString().replaceFirst('Exception: ', '');
         _loading = false;
       });
+    }
+  }
+
+  Future<void> _confirmarCancelar() async {
+    final v = _venta;
+    if (v == null || !v.sePuedeCancelar) return;
+
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Cancelar compra'),
+        content: Text(
+          '¿Deseas cancelar la compra #${v.id}? '
+          'Se liberarán los artículos reservados.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('No'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text(
+              'Sí, cancelar',
+              style: TextStyle(color: Colors.red),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+
+    setState(() => _cancelando = true);
+    try {
+      final updated = await _ventaService.cancelarCompra(v.id);
+      if (!mounted) return;
+      setState(() {
+        _venta = updated;
+        _cancelando = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Compra cancelada')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _cancelando = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.toString().replaceFirst('Exception: ', '')),
+          backgroundColor: Colors.red.shade700,
+        ),
+      );
     }
   }
 
@@ -101,9 +151,6 @@ class _DetallePedidoViewState extends State<DetallePedidoView> {
       );
     }
 
-    final estado =
-        v.estado.trim().isEmpty ? 'No disponible' : v.estado.trim();
-
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
       child: Column(
@@ -118,17 +165,50 @@ class _DetallePedidoViewState extends State<DetallePedidoView> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _row('id', 'Compra #${v.id}'),
-                _row('estado', estado),
-                _row('total', _fmtMoney(v.total)),
-                _row('created_at', _fmtDate(v.createdAt)),
-                _row('forma_pago', v.etiquetaFormaPago),
+                _row('Compra', 'Compra #${v.id}'),
+                _row('Estado', v.estadoEtiqueta),
+                _row('Total', _fmtMoney(v.total)),
+                _row('Fecha', _fmtDate(v.createdAt)),
+                _row('Forma de pago', v.etiquetaFormaPago),
               ],
             ),
           ),
+          if (v.sePuedeCancelar) ...[
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton(
+                onPressed: _cancelando ? null : _confirmarCancelar,
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.red.shade700,
+                  side: BorderSide(color: Colors.red.shade300),
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                ),
+                child: _cancelando
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Text('Cancelar compra'),
+              ),
+            ),
+          ] else if (v.estadoClave == 'cancelada') ...[
+            const SizedBox(height: 12),
+            const Text(
+              'Esta compra ya fue cancelada. Los artículos se liberaron.',
+              style: TextStyle(fontSize: 12, color: Colors.black45, height: 1.35),
+            ),
+          ] else if (v.estadoClave == 'completada') ...[
+            const SizedBox(height: 12),
+            const Text(
+              'Esta compra ya está completada y no se puede cancelar.',
+              style: TextStyle(fontSize: 12, color: Colors.black45, height: 1.35),
+            ),
+          ],
           const SizedBox(height: 20),
           const Text(
-            'Líneas de la compra',
+            'Artículos de la compra',
             style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
           ),
           const SizedBox(height: 10),
@@ -140,7 +220,7 @@ class _DetallePedidoViewState extends State<DetallePedidoView> {
                 borderRadius: BorderRadius.circular(12),
               ),
               child: const Text(
-                'Sin líneas de detalle.',
+                'Sin artículos en esta compra.',
                 style: TextStyle(color: secondaryText),
               ),
             )
@@ -164,7 +244,6 @@ class _DetallePedidoViewState extends State<DetallePedidoView> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            // Nombre real del backend o "Artículo #id".
             line.etiquetaArticulo,
             style: const TextStyle(
               fontSize: 15,
@@ -172,10 +251,9 @@ class _DetallePedidoViewState extends State<DetallePedidoView> {
             ),
           ),
           const SizedBox(height: 8),
-          _row('articulo_id', '${line.articuloId}'),
-          _row('cantidad', '${line.cantidad}'),
-          _row('precio_unitario', _fmtMoney(line.precioUnitario)),
-          _row('subtotal', _fmtMoney(line.subtotal)),
+          _row('Cantidad', '${line.cantidad}'),
+          _row('Precio unitario', _fmtMoney(line.precioUnitario)),
+          _row('Subtotal', _fmtMoney(line.subtotal)),
         ],
       ),
     );

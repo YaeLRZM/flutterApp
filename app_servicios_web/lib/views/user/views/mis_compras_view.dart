@@ -1,13 +1,12 @@
 import 'package:flutter/material.dart';
 
 import '../../../models/venta.dart';
+import '../../../services/api_service.dart';
 import '../../../services/venta_service.dart';
 import '../../../widgets/app_ui.dart';
 import 'detalle_pedido_view.dart';
 
-/// Historial de compras del usuario autenticado.
-/// Fuente real: GET /api/ventas (scope user_id en backend).
-/// Sin mock, sin tracking, sin filtros de envío inventados.
+/// Historial de compras del usuario autenticado (GET /api/ventas).
 class MisComprasView extends StatefulWidget {
   const MisComprasView({super.key});
 
@@ -26,6 +25,7 @@ class _MisComprasViewState extends State<MisComprasView> {
   List<Venta> _compras = [];
   int _count = 0;
   double _sumaTotales = 0;
+  int? _cancelandoId;
 
   @override
   void initState() {
@@ -39,7 +39,19 @@ class _MisComprasViewState extends State<MisComprasView> {
       _error = null;
     });
     try {
-      // Mismo endpoint que vendedor; el backend filtra por rol (user_id).
+      final token = await ApiService().getToken();
+      if (token == null) {
+        if (!mounted) return;
+        setState(() {
+          _error = 'Inicia sesión para ver tu historial de compras.';
+          _compras = [];
+          _count = 0;
+          _sumaTotales = 0;
+          _loading = false;
+        });
+        return;
+      }
+
       final result = await _ventaService.fetchMisVentas();
       if (!mounted) return;
       setState(() {
@@ -67,13 +79,74 @@ class _MisComprasViewState extends State<MisComprasView> {
     return '$dd/$mm/${local.year}';
   }
 
-  void _abrirDetalle(Venta v) {
-    Navigator.push(
+  Color _estadoColor(Venta v) {
+    switch (v.estadoClave) {
+      case 'pendiente':
+        return const Color(0xFFE65100);
+      case 'cancelada':
+        return const Color(0xFF6D4C41);
+      case 'completada':
+        return bugambilia;
+      default:
+        return secondaryText;
+    }
+  }
+
+  Future<void> _abrirDetalle(Venta v) async {
+    await Navigator.push(
       context,
       MaterialPageRoute(
         builder: (_) => DetallePedidoView(ventaId: v.id),
       ),
     );
+    if (mounted) _cargar();
+  }
+
+  Future<void> _confirmarCancelar(Venta v) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Cancelar compra'),
+        content: Text(
+          '¿Deseas cancelar la compra #${v.id}? '
+          'Se liberarán los artículos reservados.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('No'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text(
+              'Sí, cancelar',
+              style: TextStyle(color: Colors.red),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+
+    setState(() => _cancelandoId = v.id);
+    try {
+      await _ventaService.cancelarCompra(v.id);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Compra cancelada')),
+      );
+      await _cargar();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.toString().replaceFirst('Exception: ', '')),
+          backgroundColor: Colors.red.shade700,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _cancelandoId = null);
+    }
   }
 
   @override
@@ -111,7 +184,8 @@ class _MisComprasViewState extends State<MisComprasView> {
           ),
           const SizedBox(height: 8),
           const Text(
-            'Historial de tus compras reales (API). Toca una para ver el detalle.',
+            'Toca una compra para ver el detalle. '
+            'Las pendientes se pueden cancelar.',
             style: TextStyle(fontSize: 14, color: Colors.black54),
           ),
           if (_count > 0) ...[
@@ -130,7 +204,7 @@ class _MisComprasViewState extends State<MisComprasView> {
             const AppEmptyView(
               icon: Icons.shopping_bag_outlined,
               title: 'Aún no tienes compras',
-              subtitle: 'Cuando completes una compra real, aparecerá aquí.',
+              subtitle: 'Cuando completes una compra, aparecerá aquí.',
             )
           else
             ..._compras.map(_buildCard),
@@ -140,8 +214,8 @@ class _MisComprasViewState extends State<MisComprasView> {
   }
 
   Widget _buildCard(Venta v) {
-    final estado =
-        v.estado.trim().isEmpty ? 'No disponible' : v.estado.trim();
+    final color = _estadoColor(v);
+    final cancelando = _cancelandoId == v.id;
 
     return Material(
       color: Colors.transparent,
@@ -182,15 +256,15 @@ class _MisComprasViewState extends State<MisComprasView> {
                       vertical: 4,
                     ),
                     decoration: BoxDecoration(
-                      color: bugambilia.withValues(alpha: 0.1),
+                      color: color.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
-                      estado,
-                      style: const TextStyle(
+                      v.estadoEtiqueta,
+                      style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w700,
-                        color: bugambilia,
+                        color: color,
                       ),
                     ),
                   ),
@@ -208,9 +282,28 @@ class _MisComprasViewState extends State<MisComprasView> {
               ),
               const SizedBox(height: 6),
               Text(
-                'created_at: ${_fmtDate(v.createdAt)}',
+                'Fecha: ${_fmtDate(v.createdAt)}',
                 style: const TextStyle(fontSize: 12, color: secondaryText),
               ),
+              if (v.sePuedeCancelar) ...[
+                const SizedBox(height: 12),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton(
+                    onPressed: cancelando ? null : () => _confirmarCancelar(v),
+                    child: cancelando
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Text(
+                            'Cancelar compra',
+                            style: TextStyle(color: Colors.red),
+                          ),
+                  ),
+                ),
+              ],
             ],
           ),
         ),

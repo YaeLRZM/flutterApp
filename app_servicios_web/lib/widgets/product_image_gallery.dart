@@ -65,7 +65,12 @@ class _ProductImageGalleryState extends State<ProductImageGallery> {
       fit: fit,
       width: double.infinity,
       height: double.infinity,
-      errorBuilder: (_, __, ___) => Container(color: Colors.grey[300]),
+      // Seed Unsplash u otras URLs caídas: no dejar error visual en detalle.
+      errorBuilder: (_, __, ___) => Container(
+        color: Colors.grey[300],
+        alignment: Alignment.center,
+        child: const Icon(Icons.image_not_supported_outlined, color: Colors.black38),
+      ),
     );
   }
 

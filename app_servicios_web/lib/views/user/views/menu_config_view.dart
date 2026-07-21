@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../services/api_service.dart';
+import '../../../services/local_session_store.dart';
 import '../../../widgets/app_ui.dart';
 
 /// Configuración / perfil del comprador: datos reales de GET /api/me en
@@ -85,6 +86,7 @@ class _MenuConfigViewState extends State<MenuConfigView> {
     if (confirm != true || !context.mounted) return;
 
     await ApiService().logout();
+    await LocalSessionStore.onGuest();
     if (context.mounted) {
       Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
     }
@@ -180,7 +182,7 @@ class _MenuConfigViewState extends State<MenuConfigView> {
                       ],
                       const SizedBox(height: 8),
                       const Text(
-                        'Perfil en solo lectura · datos de /api/me',
+                        'Perfil en consulta · la edición llegará pronto',
                         style: TextStyle(fontSize: 11, color: Colors.black45),
                       ),
                     ],

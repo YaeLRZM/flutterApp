@@ -21,9 +21,8 @@ class NotificacionesView extends StatelessWidget {
       title: 'Notificaciones',
       subtitle: 'Bandeja aún no disponible',
       body:
-          'Aquí verás avisos de compras y actividad cuando exista un sistema '
-          'de notificaciones en el servidor.\n\n'
-          'Hoy no hay mensajes reales que mostrar: no se inventan alertas ni conteos.',
+          'Pronto podrás ver aquí avisos sobre tus compras y actividad.\n\n'
+          'Por ahora no hay notificaciones disponibles en la app.',
       primaryLabel: 'Ir al catálogo',
       onPrimary: onIrAInicio,
       secondaryLabel: onIrAMisCompras != null ? 'Ver mis compras' : null,

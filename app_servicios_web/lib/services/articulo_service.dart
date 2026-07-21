@@ -78,7 +78,7 @@ class ArticuloService {
     final list = await _getArticulos(query: query.isEmpty ? null : query);
     // Búsqueda sin resultados: lista vacía (no error).
     if (list.isEmpty && term.isEmpty) {
-      throw Exception('La API no devolvió artículos');
+      throw Exception('No hay artículos para mostrar por ahora');
     }
     return list.take(limit).toList();
   }
@@ -210,6 +210,7 @@ class ArticuloService {
   Future<void> setImagenPrincipal({
     required int articuloId,
     required String url,
+    bool alreadyRetried = false,
   }) async {
     final headers = await ApiService().getAuthHeaders();
     final response = await http.post(
@@ -222,6 +223,21 @@ class ArticuloService {
       }),
     );
 
+    if (response.statusCode == 401) {
+      if (!alreadyRetried) {
+        final recovered = await ApiService().recoverFromUnauthorized();
+        if (recovered) {
+          return setImagenPrincipal(
+            articuloId: articuloId,
+            url: url,
+            alreadyRetried: true,
+          );
+        }
+      } else {
+        await ApiService().onUnauthorized();
+      }
+      throw Exception('Sesión expirada. Vuelve a iniciar sesión.');
+    }
     if (response.statusCode == 403) {
       throw Exception('No tienes permiso para cambiar la imagen de este producto.');
     }
@@ -237,7 +253,10 @@ class ArticuloService {
 
   /// Crea artículo del vendedor autenticado.
   /// POST /api/articulos (tienda_id lo asigna el backend).
-  Future<Articulo> createArticulo(Map<String, dynamic> fields) async {
+  Future<Articulo> createArticulo(
+    Map<String, dynamic> fields, {
+    bool alreadyRetried = false,
+  }) async {
     final headers = await ApiService().getAuthHeaders();
     final response = await http.post(
       Uri.parse('${ApiService.baseUrl}/articulos'),
@@ -245,6 +264,17 @@ class ArticuloService {
       body: jsonEncode(fields),
     );
 
+    if (response.statusCode == 401) {
+      if (!alreadyRetried) {
+        final recovered = await ApiService().recoverFromUnauthorized();
+        if (recovered) {
+          return createArticulo(fields, alreadyRetried: true);
+        }
+      } else {
+        await ApiService().onUnauthorized();
+      }
+      throw Exception('Sesión expirada. Vuelve a iniciar sesión.');
+    }
     if (response.statusCode == 403) {
       throw Exception('No tienes permiso para crear productos.');
     }
@@ -268,8 +298,9 @@ class ArticuloService {
   /// PUT /api/articulos/{id}
   Future<Articulo> updateArticulo(
     int id,
-    Map<String, dynamic> fields,
-  ) async {
+    Map<String, dynamic> fields, {
+    bool alreadyRetried = false,
+  }) async {
     final headers = await ApiService().getAuthHeaders();
     final response = await http.put(
       Uri.parse('${ApiService.baseUrl}/articulos/$id'),
@@ -277,6 +308,17 @@ class ArticuloService {
       body: jsonEncode(fields),
     );
 
+    if (response.statusCode == 401) {
+      if (!alreadyRetried) {
+        final recovered = await ApiService().recoverFromUnauthorized();
+        if (recovered) {
+          return updateArticulo(id, fields, alreadyRetried: true);
+        }
+      } else {
+        await ApiService().onUnauthorized();
+      }
+      throw Exception('Sesión expirada. Vuelve a iniciar sesión.');
+    }
     if (response.statusCode == 403) {
       throw Exception('No tienes permiso para editar este producto.');
     }

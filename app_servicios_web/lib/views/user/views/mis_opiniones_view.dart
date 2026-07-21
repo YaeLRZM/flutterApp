@@ -16,11 +16,10 @@ class MisOpinionesView extends StatelessWidget {
       title: 'Mis opiniones',
       subtitle: 'Listado propio en próxima versión',
       body:
-          'Puedes publicar reseñas desde el detalle de cada producto '
-          '(calificación y comentario reales en el servidor).\n\n'
-          'El historial de “solo mis reseñas” en esta pantalla llegará cuando '
-          'el backend exponga un filtro fiable por usuario. No se muestran '
-          'opiniones inventadas aquí.',
+          'Puedes dejar reseñas desde el detalle de cada producto '
+          '(calificación y comentario).\n\n'
+          'El listado de todas tus opiniones en un solo lugar llegará en una '
+          'próxima versión.',
       primaryLabel: 'Explorar catálogo',
       onPrimary: onIrAInicio,
     );

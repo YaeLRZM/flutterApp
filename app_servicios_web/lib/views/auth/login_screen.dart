@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../services/api_service.dart';
+import '../../services/local_session_store.dart';
 import '../../widgets/app_ui.dart';
 import '../user/user_layout.dart';
 import '../vendedor/vendedor_layout.dart';
@@ -54,6 +55,7 @@ class _LoginScreenState extends State<LoginScreen> {
     if (me['success'] != true) {
       // Token inválido/expirado: limpia y muestra el formulario.
       await api.clearToken();
+      await LocalSessionStore.onGuest();
       if (mounted) setState(() => _checkingSession = false);
       return;
     }
@@ -72,9 +74,14 @@ class _LoginScreenState extends State<LoginScreen> {
 
     if (role == 'admin') {
       await api.clearToken();
+      await LocalSessionStore.onGuest();
       if (mounted) setState(() => _checkingSession = false);
       return;
     }
+
+    await LocalSessionStore.onAuthenticated(
+      userId: LocalSessionStore.userIdFromMap(user),
+    );
 
     final isSeller = role == 'vendedor' || role.contains('seller');
     if (!mounted) return;
@@ -153,6 +160,7 @@ class _LoginScreenState extends State<LoginScreen> {
     if (userRole == 'admin') {
       // Backend ya bloquea admin (403); por si llega token residual.
       await apiService.clearToken();
+      await LocalSessionStore.onGuest();
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -163,6 +171,10 @@ class _LoginScreenState extends State<LoginScreen> {
       );
       return;
     }
+
+    await LocalSessionStore.onAuthenticated(
+      userId: LocalSessionStore.userIdFromMap(response['user']),
+    );
 
     final bool isSellerActual =
         userRole == 'vendedor' || userRole.contains('seller');

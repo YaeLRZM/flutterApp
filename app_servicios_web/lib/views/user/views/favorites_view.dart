@@ -152,7 +152,7 @@ class _FavoritesViewState extends State<FavoritesView> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text(
-          'FAVORITOS LOCALES',
+          'FAVORITOS',
           style: TextStyle(
             color: Color(0xFFD81B60),
             fontSize: 10,
@@ -171,7 +171,7 @@ class _FavoritesViewState extends State<FavoritesView> {
         ),
         const SizedBox(height: 6),
         const Text(
-          'Se guardan solo en este dispositivo (sin sincronización en la nube).',
+          'Se guardan en este dispositivo. La sincronización entre equipos llegará pronto.',
           style: TextStyle(fontSize: 12, color: Colors.black45),
         ),
       ],
@@ -183,7 +183,7 @@ class _FavoritesViewState extends State<FavoritesView> {
       icon: Icons.favorite_border,
       title: 'Aún no has guardado ningún artículo.',
       subtitle:
-          'Toca el corazón en cualquier artículo para guardarlo aquí (solo en este dispositivo).',
+          'Toca el corazón en cualquier artículo para guardarlo aquí.',
     );
   }
 

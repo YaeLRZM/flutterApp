@@ -16,10 +16,9 @@ class FormasDePagoView extends StatelessWidget {
       title: 'Formas de pago',
       subtitle: 'Sin wallet en esta versión',
       body:
-          'No se guardan tarjetas ni métodos de pago en la app.\n\n'
-          'La compra usa un flujo de pago simulado (sin cobro real). '
-          'Un monedero o tarjetas guardadas será próxima versión.\n\n'
-          'No se muestran números de tarjeta ni wallets inventados.',
+          'Aún no puedes guardar tarjetas ni monederos en la app.\n\n'
+          'Al comprar se usa un pago de prueba (sin cobro real). '
+          'Guardar formas de pago estará disponible en una próxima versión.',
       primaryLabel: 'Volver al catálogo',
       onPrimary: onIrAInicio,
     );

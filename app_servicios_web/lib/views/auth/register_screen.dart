@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../services/api_service.dart';
+import '../../services/local_session_store.dart';
 import '../user/user_layout.dart';
 
 /// Registro de comprador vía POST /api/register (rol Spatie `user`).
@@ -105,7 +106,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
       return;
     }
 
-    // Solo navega si el backend creó usuario y devolvió token real.
+    await LocalSessionStore.onAuthenticated(
+      userId: LocalSessionStore.userIdFromMap(response['user']),
+    );
+
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text('Cuenta creada. Sesión iniciada.'),
@@ -158,7 +163,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
               ),
               const SizedBox(height: 8),
               Text(
-                'Registro de comprador. Se crea una cuenta real en el servidor.',
+                'Crea tu cuenta de comprador y empieza a explorar piezas textiles.',
                 style: GoogleFonts.dmSans(
                   fontSize: 15,
                   height: 1.4,
