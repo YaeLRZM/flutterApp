@@ -71,6 +71,8 @@ class Venta {
   final double total;
   final String estado;
   final DateTime? createdAt;
+  /// Momento en que el backend confirmará la compra (pendiente → completada).
+  final DateTime? autoCompleteAt;
   final int detalleCount;
   final List<DetalleVentaLinea> lineas;
 
@@ -88,6 +90,7 @@ class Venta {
     required this.total,
     required this.estado,
     this.createdAt,
+    this.autoCompleteAt,
     this.detalleCount = 0,
     this.lineas = const [],
     this.userNombre,
@@ -117,6 +120,7 @@ class Venta {
       total: _asDouble(json['total']),
       estado: json['estado']?.toString() ?? '',
       createdAt: _asDate(json['created_at']),
+      autoCompleteAt: _asDate(json['auto_complete_at']),
       detalleCount: _asInt(
         json['detalle_ventas_count'] ??
             (lineas.isNotEmpty ? lineas.length : 0),
@@ -163,6 +167,29 @@ class Venta {
 
   /// Solo compras pendientes se pueden cancelar (regla backend).
   bool get sePuedeCancelar => estadoClave == 'pendiente';
+
+  /// Tiempo restante hasta auto-confirmación (null si no aplica).
+  Duration? get tiempoRestanteAutoCompletar {
+    if (!sePuedeCancelar || autoCompleteAt == null) return null;
+    final left = autoCompleteAt!.toLocal().difference(DateTime.now());
+    return left.isNegative ? Duration.zero : left;
+  }
+
+  String get mensajeTiempoConfirmacion {
+    final left = tiempoRestanteAutoCompletar;
+    if (left == null) {
+      return 'Tu compra está en proceso y se confirmará en unos minutos.';
+    }
+    if (left == Duration.zero) {
+      return 'Tu compra se está confirmando… actualiza en un momento.';
+    }
+    final m = left.inMinutes;
+    final s = left.inSeconds % 60;
+    final reloj = m > 0
+        ? '$m min ${s.toString().padLeft(2, '0')} s'
+        : '$s s';
+    return 'Tu compra está en proceso y se confirmará en aproximadamente $reloj.';
+  }
 }
 
 class VentasListResult {

@@ -436,6 +436,68 @@ class ApiService {
     return {'success': true};
   }
 
+  /// Actualiza perfil: PUT /api/me (nunca envía rol).
+  Future<Map<String, dynamic>> updateProfile({
+    String? nombre,
+    String? apellidoPaterno,
+    String? apellidoMaterno,
+    String? email,
+    String? telefono,
+    String? direccion,
+    String? fotoUrl,
+  }) async {
+    try {
+      final body = <String, dynamic>{};
+      if (nombre != null) body['nombre'] = nombre;
+      if (apellidoPaterno != null) body['apellido_paterno'] = apellidoPaterno;
+      if (apellidoMaterno != null) body['apellido_materno'] = apellidoMaterno;
+      if (email != null) body['email'] = email;
+      if (telefono != null) body['telefono'] = telefono;
+      if (direccion != null) body['direccion'] = direccion;
+      if (fotoUrl != null) body['foto_url'] = fotoUrl;
+
+      final response = await http
+          .put(
+            Uri.parse('$baseUrl/me'),
+            headers: await getAuthHeaders(),
+            body: jsonEncode(body),
+          )
+          .timeout(const Duration(seconds: 15));
+
+      final data = _tryDecodeMap(response.body);
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final user = data['user'] ?? data;
+        Map<String, dynamic> userMap = data;
+        if (user is Map) {
+          userMap = Map<String, dynamic>.from(user);
+        }
+        return {
+          'success': true,
+          'user': userMap,
+          'message': data['message']?.toString() ?? 'Perfil actualizado',
+        };
+      }
+      if (response.statusCode == 401) {
+        await onUnauthorized(navigate: true);
+        return {
+          'success': false,
+          'message': 'Sesión expirada',
+          'unauthorized': true,
+        };
+      }
+      return {
+        'success': false,
+        'message': _extractErrorMessage(
+          data,
+          statusCode: response.statusCode,
+          fallback: 'No se pudo guardar el perfil',
+        ),
+      };
+    } catch (e) {
+      return {'success': false, 'message': 'Error de conexión: $e'};
+    }
+  }
+
   /// Perfil del usuario autenticado: GET /api/me.
   ///
   /// Retorna:

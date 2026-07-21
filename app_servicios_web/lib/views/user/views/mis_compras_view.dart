@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../../models/venta.dart';
@@ -26,18 +28,43 @@ class _MisComprasViewState extends State<MisComprasView> {
   int _count = 0;
   double _sumaTotales = 0;
   int? _cancelandoId;
+  Timer? _tick;
+  Timer? _refreshPoll;
 
   @override
   void initState() {
     super.initState();
     _cargar();
+    // Solo refresca UI del reloj; el cambio de estado lo decide el backend.
+    _tick = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!mounted) return;
+      if (_compras.any((c) => c.sePuedeCancelar)) {
+        setState(() {});
+      }
+    });
+    // Reconsulta periódica para capturar auto-completado del backend.
+    _refreshPoll = Timer.periodic(const Duration(seconds: 30), (_) {
+      if (!mounted || _loading) return;
+      if (_compras.any((c) => c.sePuedeCancelar)) {
+        _cargar(silencioso: true);
+      }
+    });
   }
 
-  Future<void> _cargar() async {
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
+  @override
+  void dispose() {
+    _tick?.cancel();
+    _refreshPoll?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _cargar({bool silencioso = false}) async {
+    if (!silencioso) {
+      setState(() {
+        _loading = true;
+        _error = null;
+      });
+    }
     try {
       final token = await ApiService().getToken();
       if (token == null) {
@@ -59,9 +86,11 @@ class _MisComprasViewState extends State<MisComprasView> {
         _count = result.count;
         _sumaTotales = result.sumaTotales;
         _loading = false;
+        _error = null;
       });
     } catch (e) {
       if (!mounted) return;
+      if (silencioso) return;
       setState(() {
         _error = e.toString().replaceFirst('Exception: ', '');
         _loading = false;
@@ -286,7 +315,16 @@ class _MisComprasViewState extends State<MisComprasView> {
                 style: const TextStyle(fontSize: 12, color: secondaryText),
               ),
               if (v.sePuedeCancelar) ...[
-                const SizedBox(height: 12),
+                const SizedBox(height: 8),
+                Text(
+                  v.mensajeTiempoConfirmacion,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Color(0xFFE65100),
+                    height: 1.35,
+                  ),
+                ),
+                const SizedBox(height: 8),
                 Align(
                   alignment: Alignment.centerRight,
                   child: TextButton(

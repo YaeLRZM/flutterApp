@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../../models/venta.dart';
@@ -23,11 +25,22 @@ class _DetallePedidoViewState extends State<DetallePedidoView> {
   bool _cancelando = false;
   String? _error;
   Venta? _venta;
+  Timer? _tick;
 
   @override
   void initState() {
     super.initState();
     _cargar();
+    _tick = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!mounted) return;
+      if (_venta?.sePuedeCancelar == true) setState(() {});
+    });
+  }
+
+  @override
+  void dispose() {
+    _tick?.cancel();
+    super.dispose();
   }
 
   Future<void> _cargar() async {
@@ -174,6 +187,15 @@ class _DetallePedidoViewState extends State<DetallePedidoView> {
             ),
           ),
           if (v.sePuedeCancelar) ...[
+            const SizedBox(height: 12),
+            Text(
+              v.mensajeTiempoConfirmacion,
+              style: const TextStyle(
+                fontSize: 13,
+                color: Color(0xFFE65100),
+                height: 1.4,
+              ),
+            ),
             const SizedBox(height: 16),
             SizedBox(
               width: double.infinity,
@@ -202,7 +224,7 @@ class _DetallePedidoViewState extends State<DetallePedidoView> {
           ] else if (v.estadoClave == 'completada') ...[
             const SizedBox(height: 12),
             const Text(
-              'Esta compra ya está completada y no se puede cancelar.',
+              'Esta compra ya está confirmada y no se puede cancelar.',
               style: TextStyle(fontSize: 12, color: Colors.black45, height: 1.35),
             ),
           ],
