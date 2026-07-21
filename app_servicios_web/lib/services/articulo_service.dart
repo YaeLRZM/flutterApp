@@ -338,6 +338,63 @@ class ArticuloService {
     return parsed;
   }
 
+  /// Elimina un artículo del catálogo del vendedor (JWT + ownership).
+  /// DELETE /api/articulos/{id}
+  Future<void> eliminarArticulo(int id, {bool alreadyRetried = false}) async {
+    if (id <= 0) {
+      throw Exception('Artículo inválido.');
+    }
+    // Defensa de rol: solo cuentas vendedor (admin no usa esta app de catálogo).
+    if (!await ApiService().isVendedor()) {
+      throw Exception(ApiService.msgAccionNoPermitidaVendedor);
+    }
+
+    final headers = await ApiService().getAuthHeaders(includeContentType: false);
+    final response = await http.delete(
+      Uri.parse('${ApiService.baseUrl}/articulos/$id'),
+      headers: headers,
+    );
+
+    if (response.statusCode == 401) {
+      if (!alreadyRetried) {
+        final recovered = await ApiService().recoverFromUnauthorized();
+        if (recovered) {
+          return eliminarArticulo(id, alreadyRetried: true);
+        }
+      } else {
+        await ApiService().onUnauthorized();
+      }
+      throw Exception('Sesión expirada. Vuelve a iniciar sesión.');
+    }
+    if (response.statusCode == 403) {
+      throw Exception('No tienes permiso para eliminar este producto.');
+    }
+    if (response.statusCode == 404) {
+      throw Exception('El artículo ya no existe.');
+    }
+    if (response.statusCode == 422) {
+      try {
+        final decoded = jsonDecode(response.body);
+        if (decoded is Map) {
+          final msg = decoded['message']?.toString();
+          if (msg != null && msg.trim().isNotEmpty) {
+            throw Exception(msg.trim());
+          }
+        }
+      } catch (e) {
+        if (e is Exception && e.toString().startsWith('Exception:')) rethrow;
+      }
+      throw Exception(
+        'No se puede eliminar este artículo. Prueba ocultarlo del catálogo.',
+      );
+    }
+    if (response.statusCode != 200 && response.statusCode != 204) {
+      throw Exception(
+        'Error al eliminar producto (${response.statusCode})',
+      );
+    }
+  }
+
   /// Conteo por categoría (Colecciones).
   Future<Map<int, int>> fetchConteoArticulosPorCategoria() async {
     return contarArticulosPorCategoria();

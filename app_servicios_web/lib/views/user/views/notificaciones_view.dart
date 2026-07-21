@@ -5,15 +5,23 @@ import '../../../services/notificacion_service.dart';
 import '../../../widgets/app_ui.dart';
 import 'detalle_pedido_view.dart';
 
-/// Notificaciones reales del comprador autenticado.
+/// Notificaciones reales del usuario autenticado (comprador o vendedor).
+/// Listado de GET /api/notificaciones (filtrado por user_id en backend).
 class NotificacionesView extends StatefulWidget {
   final VoidCallback? onIrAInicio;
   final VoidCallback? onIrAMisCompras;
+  final VoidCallback? onIrAMisVentas;
+  /// Para actualizar el badge de la campanita en el layout padre.
+  final ValueChanged<int>? onNoLeidasChanged;
+  final bool esVendedor;
 
   const NotificacionesView({
     super.key,
     this.onIrAInicio,
     this.onIrAMisCompras,
+    this.onIrAMisVentas,
+    this.onNoLeidasChanged,
+    this.esVendedor = false,
   });
 
   @override
@@ -46,6 +54,7 @@ class _NotificacionesViewState extends State<NotificacionesView> {
         _noLeidas = result.noLeidas;
         _loading = false;
       });
+      widget.onNoLeidasChanged?.call(result.noLeidas);
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -65,17 +74,24 @@ class _NotificacionesViewState extends State<NotificacionesView> {
       await _service.marcarLeida(n.id);
     }
 
+    final tipo = n.tipo.toLowerCase();
     final ventaId = n.data?['venta_id'];
     final id = ventaId is int
         ? ventaId
         : int.tryParse(ventaId?.toString() ?? '');
-    if (id != null && id > 0 && mounted) {
+
+    if (widget.esVendedor) {
+      // Vendedor: ventas → Mis ventas; reseñas se marcan leídas al abrir.
+      if (tipo.startsWith('venta') && widget.onIrAMisVentas != null) {
+        widget.onIrAMisVentas!();
+      }
+    } else if (id != null && id > 0 && mounted) {
       await Navigator.push(
         context,
         MaterialPageRoute(builder: (_) => DetallePedidoView(ventaId: id)),
       );
     } else if (widget.onIrAMisCompras != null &&
-        (n.tipo.contains('compra') || n.tipo.contains('publicacion') == false)) {
+        (tipo.contains('compra') || !tipo.contains('publicacion'))) {
       widget.onIrAMisCompras?.call();
     }
 
@@ -92,11 +108,15 @@ class _NotificacionesViewState extends State<NotificacionesView> {
   IconData _iconFor(String tipo) {
     switch (tipo) {
       case 'compra_completada':
+      case 'venta_completada':
         return Icons.check_circle_outline;
       case 'compra_pendiente':
+      case 'venta_pendiente':
         return Icons.hourglass_top_outlined;
       case 'nueva_publicacion':
         return Icons.storefront_outlined;
+      case 'nueva_resena':
+        return Icons.star_outline;
       default:
         return Icons.notifications_none_outlined;
     }
@@ -146,11 +166,12 @@ class _NotificacionesViewState extends State<NotificacionesView> {
           ],
           const SizedBox(height: 16),
           if (_items.isEmpty)
-            const AppEmptyView(
+            AppEmptyView(
               icon: Icons.notifications_none_outlined,
               title: 'No tienes notificaciones',
-              subtitle:
-                  'Aquí verás avisos de tus compras y de nuevas publicaciones.',
+              subtitle: widget.esVendedor
+                  ? 'Aquí verás avisos de ventas de tu tienda y reseñas de tus productos.'
+                  : 'Aquí verás avisos de tus compras y de nuevas publicaciones.',
             )
           else
             ..._items.map(_buildTile),

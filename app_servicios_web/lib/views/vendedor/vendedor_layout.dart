@@ -1,21 +1,18 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
-// 1. Importamos tus menús y botones globales
-import '../../widgets/app_ui.dart';
+import '../../services/notificacion_service.dart';
 import '../../widgets/global_top_bar.dart';
 import '../../widgets/global_bottom_bar.dart';
 import '../../widgets/global_side_menu.dart';
 import '../../widgets/global_chatbot_button.dart';
-
-// 2. IMPORTAMOS TUS VISTAS DE VENDEDOR
+import '../user/views/menu_config_view.dart';
+import '../user/views/notificaciones_view.dart';
 import 'views/home_view_vendedor.dart';
 import 'views/productos_view.dart';
 import 'views/ventas_view.dart';
 import 'views/tienda_view.dart';
-// Importamos también las vistas del menú lateral que compartas aquí
-import '../user/views/menu_config_view.dart';
-// Si tienes notificaciones u otras para el vendedor, impórtalas aquí también
-// import 'views/notificaciones_view.dart';
 
 class VendedorLayout extends StatefulWidget {
   const VendedorLayout({super.key});
@@ -26,9 +23,38 @@ class VendedorLayout extends StatefulWidget {
 
 class _VendedorLayoutState extends State<VendedorLayout> {
   bool _isDrawerOpen = false;
-
-  // Usamos un String para saber exactamente qué página cargar dentro del Layout
   String _activePage = 'home';
+
+  final _notificacionService = NotificacionService();
+  int _noLeidas = 0;
+  Timer? _notifPoll;
+
+  @override
+  void initState() {
+    super.initState();
+    _refrescarBadge();
+    // Poll ligero: nuevas ventas / completadas / reseñas.
+    _notifPoll = Timer.periodic(const Duration(seconds: 30), (_) {
+      if (!mounted) return;
+      _refrescarBadge();
+    });
+  }
+
+  @override
+  void dispose() {
+    _notifPoll?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _refrescarBadge() async {
+    try {
+      final result = await _notificacionService.fetchNotificaciones();
+      if (!mounted) return;
+      setState(() => _noLeidas = result.noLeidas);
+    } catch (_) {
+      // No bloquear el panel si falla el badge.
+    }
+  }
 
   void _toggleDrawer() {
     setState(() {
@@ -36,13 +62,11 @@ class _VendedorLayoutState extends State<VendedorLayout> {
     });
   }
 
-  // Traduce el string de la página activa al índice del BottomBar
   int get _bottomNavIndex {
     if (_activePage == 'home') return 0;
     if (_activePage == 'productos') return 1;
     if (_activePage == 'ventas') return 2;
     if (_activePage == 'mi_tienda') return 3;
-    // Si abrimos "configuracion" u otra vista del menú, dejamos encendido el ícono de Inicio
     return 0;
   }
 
@@ -56,6 +80,8 @@ class _VendedorLayoutState extends State<VendedorLayout> {
         return 'Mis ventas';
       case 'mi_tienda':
         return 'Mi tienda';
+      case 'notificaciones':
+        return 'Notificaciones';
       case 'configuracion':
         return 'Configuración';
       default:
@@ -68,11 +94,14 @@ class _VendedorLayoutState extends State<VendedorLayout> {
       _activePage = page;
       if (_isDrawerOpen) _isDrawerOpen = false;
     });
+    if (page == 'notificaciones') {
+      // Al abrir la bandeja, reconsultar conteo al volver se hace vía callback.
+      _refrescarBadge();
+    }
   }
 
   void _onNotificationsTap() {
-    // Misma copy transversal de “próxima versión” (sin bandeja inventada).
-    AppUi.showProximamente(context, feature: 'Notificaciones');
+    _go('notificaciones');
   }
 
   Widget _getContentView() {
@@ -89,6 +118,14 @@ class _VendedorLayoutState extends State<VendedorLayout> {
         return const VentasView();
       case 'mi_tienda':
         return const TiendaView();
+      case 'notificaciones':
+        return NotificacionesView(
+          esVendedor: true,
+          onIrAMisVentas: () => _go('ventas'),
+          onNoLeidasChanged: (n) {
+            if (mounted) setState(() => _noLeidas = n);
+          },
+        );
       case 'configuracion':
         return const MenuConfigView();
       default:
@@ -108,23 +145,21 @@ class _VendedorLayoutState extends State<VendedorLayout> {
       backgroundColor: const Color(0xFFF8F5F2),
       body: Stack(
         children: [
-          // MENÚ LATERAL ACTUALIZADO
           GlobalSideMenu(
             onClose: _toggleDrawer,
-            isSeller: true, // Modo vendedor
-            currentRoute: _activePage, // Le pasamos la ruta actual
+            isSeller: true,
+            currentRoute: _activePage,
             onNavigate: (route) {
-              _toggleDrawer(); // Cierra el menú animado primero
-
-              // Espera a que termine la animación 3D (300ms) antes de cambiar la vista
+              _toggleDrawer();
               Future.delayed(const Duration(milliseconds: 300), () {
-                // TODAS las rutas se cargan dentro del layout
+                if (!mounted) return;
                 setState(() => _activePage = route);
+                if (route == 'notificaciones') {
+                  _refrescarBadge();
+                }
               });
             },
           ),
-
-          // MARCO CON EFECTO 3D
           AnimatedContainer(
             duration: const Duration(milliseconds: 350),
             curve: Curves.easeOutCubic,
@@ -141,7 +176,7 @@ class _VendedorLayoutState extends State<VendedorLayout> {
               boxShadow: _isDrawerOpen
                   ? [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.2),
+                        color: Colors.black.withValues(alpha: 0.2),
                         blurRadius: 20,
                         spreadRadius: 5,
                       ),
@@ -157,6 +192,7 @@ class _VendedorLayoutState extends State<VendedorLayout> {
                 appBar: GlobalTopBar.seller(
                   title: _topBarTitle,
                   onNotificationsTap: _onNotificationsTap,
+                  unreadNotifications: _noLeidas,
                 ),
                 body: Stack(
                   children: [

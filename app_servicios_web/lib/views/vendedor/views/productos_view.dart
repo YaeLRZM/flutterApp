@@ -185,6 +185,66 @@ class _ProductosViewState extends State<ProductosView> {
     });
   }
 
+  Future<void> _confirmarEliminar(Articulo a) async {
+    if (_busyIds.contains(a.id)) return;
+
+    // Solo vendedor (esta vista es de panel vendedor; defensa extra).
+    final esVendedor = await ApiService().isVendedor();
+    if (!mounted) return;
+    if (!esVendedor) {
+      AppUi.showAccionNoPermitidaVendedor(context);
+      return;
+    }
+
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Eliminar artículo'),
+        content: Text(
+          '¿Quieres eliminar este artículo del catálogo?\n\n'
+          '“${a.nombre}”',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancelar'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text(
+              'Eliminar',
+              style: TextStyle(color: Colors.red, fontWeight: FontWeight.w700),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+
+    setState(() => _busyIds.add(a.id));
+    try {
+      await _articuloService.eliminarArticulo(a.id);
+      if (!mounted) return;
+      setState(() {
+        _productos = _productos.where((p) => p.id != a.id).toList();
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Artículo eliminado del catálogo')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.toString().replaceFirst('Exception: ', '')),
+          backgroundColor: Colors.red.shade700,
+          duration: const Duration(seconds: 4),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _busyIds.remove(a.id));
+    }
+  }
+
   Future<void> _abrirEdicion(Articulo a) async {
     // Capturar messenger del padre ANTES del modal (context estable).
     final messenger = ScaffoldMessenger.maybeOf(context);
@@ -609,6 +669,19 @@ class _ProductosViewState extends State<ProductosView> {
                         ),
                       ),
                     ],
+                  ),
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: busy ? null : () => _confirmarEliminar(a),
+                      icon: const Icon(Icons.delete_outline, size: 16),
+                      label: const Text('Eliminar artículo'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.red.shade700,
+                        side: BorderSide(color: Colors.red.shade300),
+                      ),
+                    ),
                   ),
                   TextButton(
                     onPressed: a.disponible

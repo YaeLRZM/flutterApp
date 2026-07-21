@@ -104,6 +104,12 @@ class GlobalSideMenu extends StatelessWidget {
                       isSelected: currentRoute == 'ventas',
                       onTap: () => onNavigate('ventas'),
                     ),
+                    _buildDrawerItem(
+                      icon: Icons.notifications_none_outlined,
+                      title: 'Notificaciones',
+                      isSelected: currentRoute == 'notificaciones',
+                      onTap: () => onNavigate('notificaciones'),
+                    ),
                   ]
                   // Versión Usuario Normal
                   else ...[

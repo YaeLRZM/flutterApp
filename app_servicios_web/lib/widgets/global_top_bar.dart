@@ -18,6 +18,9 @@ class GlobalTopBar extends StatefulWidget implements PreferredSizeWidget {
   /// Campana: si no se provee, muestra “próxima versión” (sin badge falso).
   final VoidCallback? onNotificationsTap;
 
+  /// No leídas reales (0 = sin badge). Nunca inventar conteos.
+  final int unreadNotifications;
+
   const GlobalTopBar({
     super.key,
     this.title = 'Ixé Moda',
@@ -25,12 +28,14 @@ class GlobalTopBar extends StatefulWidget implements PreferredSizeWidget {
     this.onSearchSubmitted,
     this.searchInitialText,
     this.onNotificationsTap,
+    this.unreadNotifications = 0,
   });
 
   const GlobalTopBar.seller({
     super.key,
     this.title = 'Ixé Moda - Vendedor',
     this.onNotificationsTap,
+    this.unreadNotifications = 0,
   })  : showSearch = false,
         onSearchSubmitted = null,
         searchInitialText = null;
@@ -41,6 +46,7 @@ class GlobalTopBar extends StatefulWidget implements PreferredSizeWidget {
     ValueChanged<String>? onSearchSubmitted,
     String? searchInitialText,
     VoidCallback? onNotificationsTap,
+    int unreadNotifications = 0,
   }) {
     switch (userType) {
       case UserType.client:
@@ -50,11 +56,13 @@ class GlobalTopBar extends StatefulWidget implements PreferredSizeWidget {
           onSearchSubmitted: onSearchSubmitted,
           searchInitialText: searchInitialText,
           onNotificationsTap: onNotificationsTap,
+          unreadNotifications: unreadNotifications,
         );
       case UserType.seller:
         return GlobalTopBar.seller(
           title: title,
           onNotificationsTap: onNotificationsTap,
+          unreadNotifications: unreadNotifications,
         );
     }
   }
@@ -164,10 +172,26 @@ class _GlobalTopBarState extends State<GlobalTopBar> {
                     minWidth: 40,
                     minHeight: 40,
                   ),
-                  icon: const Icon(
-                    Icons.notifications_none_outlined,
-                    color: Colors.white,
-                    size: 26,
+                  icon: Badge(
+                    isLabelVisible: widget.unreadNotifications > 0,
+                    backgroundColor: Colors.white,
+                    textColor: const Color(0xFFD81B60),
+                    label: Text(
+                      widget.unreadNotifications > 99
+                          ? '99+'
+                          : '${widget.unreadNotifications}',
+                      style: const TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    child: Icon(
+                      widget.unreadNotifications > 0
+                          ? Icons.notifications_active_outlined
+                          : Icons.notifications_none_outlined,
+                      color: Colors.white,
+                      size: 26,
+                    ),
                   ),
                 ),
               ],
