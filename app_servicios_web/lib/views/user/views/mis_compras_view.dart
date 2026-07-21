@@ -1,227 +1,265 @@
 import 'package:flutter/material.dart';
 
-class MisComprasView extends StatelessWidget {
+import '../../../models/venta.dart';
+import '../../../services/venta_service.dart';
+import 'detalle_pedido_view.dart';
+
+/// Historial de compras del usuario autenticado.
+/// Fuente real: GET /api/ventas (scope user_id en backend).
+/// Sin mock, sin tracking, sin filtros de envío inventados.
+class MisComprasView extends StatefulWidget {
   const MisComprasView({super.key});
+
+  @override
+  State<MisComprasView> createState() => _MisComprasViewState();
+}
+
+class _MisComprasViewState extends State<MisComprasView> {
+  static const Color bugambilia = Color(0xFFD81B60);
+  static const Color secondaryText = Color(0xFF5E6668);
+
+  final _ventaService = VentaService();
+
+  bool _loading = true;
+  String? _error;
+  List<Venta> _compras = [];
+  int _count = 0;
+  double _sumaTotales = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _cargar();
+  }
+
+  Future<void> _cargar() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      // Mismo endpoint que vendedor; el backend filtra por rol (user_id).
+      final result = await _ventaService.fetchMisVentas();
+      if (!mounted) return;
+      setState(() {
+        _compras = result.ventas;
+        _count = result.count;
+        _sumaTotales = result.sumaTotales;
+        _loading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = e.toString().replaceFirst('Exception: ', '');
+        _loading = false;
+      });
+    }
+  }
+
+  String _fmtMoney(double v) => '\$${v.toStringAsFixed(2)}';
+
+  String _fmtDate(DateTime? d) {
+    if (d == null) return 'No disponible';
+    final local = d.toLocal();
+    final dd = local.day.toString().padLeft(2, '0');
+    final mm = local.month.toString().padLeft(2, '0');
+    return '$dd/$mm/${local.year}';
+  }
+
+  void _abrirDetalle(Venta v) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => DetallePedidoView(ventaId: v.id),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F5F2), // Blanco marfil
-      body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.all(24.0),
-          children: [
-            const Text(
-              'Mis Compras',
-              style: TextStyle(
-                fontSize: 32,
-                fontWeight: FontWeight.w900,
-                color: Color(0xFFD81B60), // Rosa bugambilia
-                letterSpacing: -0.5,
-              ),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'Historial de tus tesoros oaxaqueños adquiridos.',
-              style: TextStyle(fontSize: 14, color: Colors.black54),
-            ),
-            const SizedBox(height: 24),
-
-            // Filtros
-            Row(
-              children: [
-                _buildFilterChip('Todos', isSelected: true),
-                const SizedBox(width: 8),
-                _buildFilterChip('En camino', isSelected: false),
-                const SizedBox(width: 8),
-                _buildFilterChip('Entregados', isSelected: false),
-              ],
-            ),
-            const SizedBox(height: 24),
-
-            // Lista de pedidos
-            _buildOrderCard(
-              orderNumber: '#IXE-92841',
-              status: 'Entregado',
-              statusColor: const Color(0xFF00BFA5),
-              title: 'Huipil de Jalapa de Díaz',
-              date: 'Realizado el 12 de Octubre, 2023',
-              price: '\$3,450 MXN',
-              buttonText: 'Ver Detalle',
-              isButtonOutlined: true,
-            ),
-            const SizedBox(height: 16),
-            _buildOrderCard(
-              orderNumber: '#IXE-93102',
-              status: 'En camino',
-              statusColor: const Color(0xFFFFB300),
-              title: 'Rebozo de Seda Genuina',
-              date: 'Realizado el 02 de Noviembre, 2023',
-              price: '\$2,800 MXN',
-              buttonText: 'Rastrear',
-              isButtonOutlined: false,
-            ),
-          ],
-        ),
-      ),
+      backgroundColor: const Color(0xFFF8F5F2),
+      body: SafeArea(child: _buildBody()),
     );
   }
 
-  Widget _buildFilterChip(String label, {required bool isSelected}) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      decoration: BoxDecoration(
-        color: isSelected ? const Color(0xFFD81B60) : Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: isSelected ? null : Border.all(color: Colors.grey.shade300),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          color: isSelected ? Colors.white : Colors.black54,
-          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-          fontSize: 13,
-        ),
-      ),
-    );
-  }
+  Widget _buildBody() {
+    if (_loading) {
+      return const Center(child: CircularProgressIndicator());
+    }
 
-  Widget _buildOrderCard({
-    required String orderNumber,
-    required String status,
-    required Color statusColor,
-    required String title,
-    required String date,
-    required String price,
-    required String buttonText,
-    required bool isButtonOutlined,
-  }) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.03),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Imagen Placeholder
-          Container(
-            height: 140,
-            width: double.infinity,
-            decoration: BoxDecoration(
-              color: Colors.grey.shade200,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: const Icon(
-              Icons.image_outlined,
-              color: Colors.black26,
-              size: 40,
-            ),
-          ),
-          const SizedBox(height: 16),
-
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    if (_error != null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
               Text(
-                'PEDIDO $orderNumber',
-                style: const TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black45,
-                ),
+                _error!,
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: secondaryText),
               ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: statusColor.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: _cargar,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: bugambilia,
+                  foregroundColor: Colors.white,
                 ),
-                child: Row(
-                  children: [
-                    CircleAvatar(radius: 3, backgroundColor: statusColor),
-                    const SizedBox(width: 4),
-                    Text(
-                      status,
-                      style: TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
-                        color: statusColor,
-                      ),
-                    ),
-                  ],
-                ),
+                child: const Text('Reintentar'),
               ),
             ],
+          ),
+        ),
+      );
+    }
+
+    return RefreshIndicator(
+      color: bugambilia,
+      onRefresh: _cargar,
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(24),
+        children: [
+          const Text(
+            'Mis compras',
+            style: TextStyle(
+              fontSize: 28,
+              fontWeight: FontWeight.w900,
+              color: bugambilia,
+              letterSpacing: -0.5,
+            ),
           ),
           const SizedBox(height: 8),
-          Text(
-            title,
-            style: const TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: Colors.black87,
-            ),
+          const Text(
+            'Historial de compras (registros de la tabla ventas de tu cuenta).',
+            style: TextStyle(fontSize: 14, color: Colors.black54),
           ),
-          const SizedBox(height: 4),
-          Text(
-            date,
-            style: const TextStyle(fontSize: 12, color: Colors.black54),
-          ),
-          const SizedBox(height: 16),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                price,
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w900,
-                  color: Color(0xFFD81B60),
-                ),
+          if (_count > 0) ...[
+            const SizedBox(height: 12),
+            Text(
+              '$_count compra(s) · suma ${_fmtMoney(_sumaTotales)}',
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: secondaryText,
               ),
-              if (isButtonOutlined)
-                OutlinedButton(
-                  onPressed: () {},
-                  style: OutlinedButton.styleFrom(
-                    side: const BorderSide(color: Color(0xFFD81B60)),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(20),
+            ),
+          ],
+          const SizedBox(height: 24),
+          if (_compras.isEmpty)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(28),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: const Column(
+                children: [
+                  Icon(Icons.shopping_bag_outlined, size: 48, color: Colors.black26),
+                  SizedBox(height: 12),
+                  Text(
+                    'Aún no tienes compras',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.black87,
                     ),
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
                   ),
-                  child: const Text(
-                    'Ver Detalle',
-                    style: TextStyle(color: Color(0xFFD81B60), fontSize: 12),
+                  SizedBox(height: 6),
+                  Text(
+                    'Cuando completes una compra real, aparecerá aquí.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 13, color: secondaryText),
                   ),
-                )
-              else
-                ElevatedButton(
-                  onPressed: () {},
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFD81B60),
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    padding: const EdgeInsets.symmetric(horizontal: 24),
-                  ),
-                  child: const Text(
-                    'Rastrear',
-                    style: TextStyle(color: Colors.white, fontSize: 12),
-                  ),
-                ),
+                ],
+              ),
+            )
+          else
+            ..._compras.map(_buildCard),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCard(Venta v) {
+    final estado =
+        v.estado.trim().isEmpty ? 'No disponible' : v.estado.trim();
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => _abrirDetalle(v),
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          margin: const EdgeInsets.only(bottom: 12),
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.03),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
             ],
           ),
-        ],
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Compra #${v.id}',
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: bugambilia.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      estado,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: bugambilia,
+                      ),
+                    ),
+                  ),
+                  const Icon(Icons.chevron_right, color: Colors.black38),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Text(
+                _fmtMoney(v.total),
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w900,
+                  color: bugambilia,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                'created_at: ${_fmtDate(v.createdAt)}',
+                style: const TextStyle(fontSize: 12, color: secondaryText),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

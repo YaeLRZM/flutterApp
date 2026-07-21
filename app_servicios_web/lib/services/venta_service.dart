@@ -6,7 +6,8 @@ import '../models/venta.dart';
 import 'api_service.dart';
 
 class VentaService {
-  /// GET /api/ventas — el backend filtra por ownership (tienda del vendedor).
+  /// GET /api/ventas — ownership por rol:
+  /// vendedor → su tienda; user → sus compras (user_id).
   Future<VentasListResult> fetchMisVentas() async {
     final headers = await ApiService().getAuthHeaders(includeContentType: false);
     final response = await http.get(
@@ -75,7 +76,86 @@ class VentaService {
     );
   }
 
-  /// GET /api/ventas/{id} — ownership en backend (tienda del vendedor).
+  /// Compra real mínima: POST /api/ventas
+  /// Body: { items: [{ articulo_id, cantidad }, ...], forma_pago_id? }
+  /// El backend calcula total, tienda_id, user_id y decrementa stock.
+  Future<Venta> crearCompra({
+    required Map<int, int> items,
+    int? formaPagoId,
+  }) async {
+    if (items.isEmpty) {
+      throw Exception('El carrito está vacío.');
+    }
+
+    final payloadItems = items.entries
+        .where((e) => e.value > 0)
+        .map((e) => {
+              'articulo_id': e.key,
+              'cantidad': e.value,
+            })
+        .toList();
+
+    if (payloadItems.isEmpty) {
+      throw Exception('No hay artículos válidos para comprar.');
+    }
+
+    final body = <String, dynamic>{
+      'items': payloadItems,
+      if (formaPagoId != null) 'forma_pago_id': formaPagoId,
+    };
+
+    final headers = await ApiService().getAuthHeaders();
+    final response = await http.post(
+      Uri.parse('${ApiService.baseUrl}/ventas'),
+      headers: headers,
+      body: jsonEncode(body),
+    );
+
+    if (response.statusCode == 401) {
+      throw Exception('Sesión expirada. Inicia sesión para comprar.');
+    }
+    if (response.statusCode == 403) {
+      throw Exception('No tienes permiso para realizar compras.');
+    }
+    if (response.statusCode == 422) {
+      try {
+        final decoded = jsonDecode(response.body);
+        if (decoded is Map) {
+          final errors = decoded['errors'];
+          if (errors is Map && errors.isNotEmpty) {
+            final first = errors.values.first;
+            if (first is List && first.isNotEmpty) {
+              throw Exception(first.first.toString());
+            }
+          }
+          final msg = decoded['message']?.toString();
+          if (msg != null && msg.isNotEmpty) {
+            throw Exception(msg);
+          }
+        }
+      } catch (e) {
+        if (e is Exception && e.toString().startsWith('Exception:')) rethrow;
+      }
+      throw Exception('Datos de compra inválidos.');
+    }
+    if (response.statusCode != 201 && response.statusCode != 200) {
+      throw Exception('Error al registrar la compra (${response.statusCode})');
+    }
+
+    final decoded = jsonDecode(response.body);
+    Map<String, dynamic>? map;
+    if (decoded is Map && decoded['venta'] is Map) {
+      map = Map<String, dynamic>.from(decoded['venta'] as Map);
+    } else if (decoded is Map && decoded['data'] is Map) {
+      map = Map<String, dynamic>.from(decoded['data'] as Map);
+    }
+    if (map == null) {
+      throw Exception('Respuesta de compra inválida');
+    }
+    return Venta.fromJson(map);
+  }
+
+  /// GET /api/ventas/{id} — ownership en backend (tienda o user_id).
   Future<Venta> fetchVentaPorId(int id) async {
     final headers = await ApiService().getAuthHeaders(includeContentType: false);
     final response = await http.get(

@@ -1,7 +1,68 @@
 import 'package:flutter/material.dart';
 
-class DetallePedidoView extends StatelessWidget {
-  const DetallePedidoView({super.key});
+import '../../../models/venta.dart';
+import '../../../services/venta_service.dart';
+
+/// Detalle de una compra del usuario.
+/// Fuente real: GET /api/ventas/{id} (ownership por user_id).
+/// Sin tracking, guías, repartidor ni folios inventados.
+class DetallePedidoView extends StatefulWidget {
+  final int ventaId;
+
+  const DetallePedidoView({super.key, required this.ventaId});
+
+  @override
+  State<DetallePedidoView> createState() => _DetallePedidoViewState();
+}
+
+class _DetallePedidoViewState extends State<DetallePedidoView> {
+  static const Color bugambilia = Color(0xFFD81B60);
+  static const Color secondaryText = Color(0xFF5E6668);
+
+  final _ventaService = VentaService();
+
+  bool _loading = true;
+  String? _error;
+  Venta? _venta;
+
+  @override
+  void initState() {
+    super.initState();
+    _cargar();
+  }
+
+  Future<void> _cargar() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final v = await _ventaService.fetchVentaPorId(widget.ventaId);
+      if (!mounted) return;
+      setState(() {
+        _venta = v;
+        _loading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = e.toString().replaceFirst('Exception: ', '');
+        _loading = false;
+      });
+    }
+  }
+
+  String _fmtMoney(double v) => '\$${v.toStringAsFixed(2)}';
+
+  String _fmtDate(DateTime? d) {
+    if (d == null) return 'No disponible';
+    final local = d.toLocal();
+    final dd = local.day.toString().padLeft(2, '0');
+    final mm = local.month.toString().padLeft(2, '0');
+    final hh = local.hour.toString().padLeft(2, '0');
+    final mi = local.minute.toString().padLeft(2, '0');
+    return '$dd/$mm/${local.year} $hh:$mi';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -11,336 +72,158 @@ class DetallePedidoView extends StatelessWidget {
         backgroundColor: Colors.transparent,
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.black87),
-        title: const Text(
-          'Detalle de Pedido',
-          style: TextStyle(color: Colors.black87, fontWeight: FontWeight.bold),
+        title: Text(
+          'Compra #${widget.ventaId}',
+          style: const TextStyle(
+            color: Colors.black87,
+            fontWeight: FontWeight.bold,
+          ),
         ),
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Pedido #IXE-882941 • Realizado el 12 de Octubre, 2023',
-              style: TextStyle(fontSize: 12, color: Colors.black54),
-            ),
-            const SizedBox(height: 16),
+      body: _buildBody(),
+    );
+  }
 
-            // Tarjeta del Producto
+  Widget _buildBody() {
+    if (_loading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_error != null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                _error!,
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: secondaryText),
+              ),
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: _cargar,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: bugambilia,
+                  foregroundColor: Colors.white,
+                ),
+                child: const Text('Reintentar'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    final v = _venta;
+    if (v == null) {
+      return const Center(
+        child: Text('No disponible', style: TextStyle(color: secondaryText)),
+      );
+    }
+
+    final estado =
+        v.estado.trim().isEmpty ? 'No disponible' : v.estado.trim();
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _row('id', 'Compra #${v.id}'),
+                _row('estado', estado),
+                _row('total', _fmtMoney(v.total)),
+                _row('created_at', _fmtDate(v.createdAt)),
+                _row('forma_pago', v.etiquetaFormaPago),
+              ],
+            ),
+          ),
+          const SizedBox(height: 20),
+          const Text(
+            'Líneas de la compra',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: 10),
+          if (v.lineas.isEmpty)
             Container(
+              padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.03),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
+                borderRadius: BorderRadius.circular(12),
               ),
-              child: Column(
-                children: [
-                  Container(
-                    height: 180,
-                    width: double.infinity,
-                    decoration: const BoxDecoration(
-                      color: Colors.grey,
-                      borderRadius: BorderRadius.vertical(
-                        top: Radius.circular(16),
-                      ),
-                    ),
-                    child: const Center(
-                      child: Icon(Icons.image, color: Colors.white54, size: 48),
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: const [
-                            Text(
-                              'Huipil de\nGala',
-                              style: TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
-                                height: 1.2,
-                              ),
-                            ),
-                            Text(
-                              '\$4,250\nMXN',
-                              textAlign: TextAlign.right,
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.w900,
-                                color: Color(0xFFD81B60),
-                                height: 1.2,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-                        const Text(
-                          'Talla: Mediana • Color: Blanco con\nbordado Bugambilia',
-                          style: TextStyle(
-                            color: Colors.black54,
-                            fontSize: 13,
-                            height: 1.4,
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 4,
-                              ),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF00BFA5).withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: const Text(
-                                'ENTREGADO',
-                                style: TextStyle(
-                                  color: Color(0xFF00BFA5),
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            const Text(
-                              'el 18 de Octubre, 2023',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.black54,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 24),
-                        SizedBox(
-                          width: double.infinity,
-                          child: ElevatedButton.icon(
-                            onPressed: () {},
-                            icon: const Icon(
-                              Icons.refresh,
-                              color: Colors.white,
-                              size: 18,
-                            ),
-                            label: const Text(
-                              'Comprar de nuevo',
-                              style: TextStyle(color: Colors.white),
-                            ),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFFD81B60),
-                              padding: const EdgeInsets.symmetric(vertical: 16),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(24),
-                              ),
-                              elevation: 0,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        Center(
-                          child: Column(
-                            children: const [
-                              Text(
-                                'Devolver producto',
-                                style: TextStyle(
-                                  color: Color(0xFFD81B60),
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 13,
-                                ),
-                              ),
-                              SizedBox(height: 4),
-                              Text(
-                                'Disponible por 3 días después de la entrega',
-                                style: TextStyle(
-                                  color: Colors.black38,
-                                  fontSize: 10,
-                                  fontStyle: FontStyle.italic,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
+              child: const Text(
+                'Sin líneas de detalle.',
+                style: TextStyle(color: secondaryText),
               ),
-            ),
-            const SizedBox(height: 16),
-
-            // Tarjeta de Dirección
-            _buildInfoCard(
-              icon: Icons.location_on_outlined,
-              actionText: 'Cambiar',
-              title: 'DIRECCIÓN DE ENVÍO',
-              content:
-                  'Ana G. Martínez\nAv. de la Independencia 405, Centro Histórico\n68000 Oaxaca de Juárez, OAX.',
-            ),
-            const SizedBox(height: 16),
-
-            // Tarjeta de Pago
-            _buildInfoCard(
-              icon: Icons.credit_card_outlined,
-              actionText: 'Ver recibo',
-              title: 'MÉTODO DE PAGO',
-              content: 'Visa terminada en 4492\nTotal pagado: \$4,250.00 MXN',
-              hasVisaBadge: true,
-            ),
-            const SizedBox(height: 16),
-
-            // Tarjeta de Ayuda (Fondo Rosado claro)
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: const Color(0xFFD81B60).withOpacity(0.08),
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Ayuda con tu pedido',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFFD81B60),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  _buildHelpRow(
-                    Icons.chat_bubble_outline,
-                    'Contactar con soporte',
-                  ),
-                  const SizedBox(height: 12),
-                  _buildHelpRow(Icons.help_outline, 'Preguntas frecuentes'),
-                  const SizedBox(height: 12),
-                  _buildHelpRow(
-                    Icons.verified_outlined,
-                    'Garantía de artesanía',
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
+            )
+          else
+            ...v.lineas.map(_buildLinea),
+        ],
       ),
     );
   }
 
-  Widget _buildInfoCard({
-    required IconData icon,
-    required String actionText,
-    required String title,
-    required String content,
-    bool hasVisaBadge = false,
-  }) {
+  Widget _buildLinea(DetalleVentaLinea line) {
     return Container(
-      padding: const EdgeInsets.all(20),
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.03),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFE8E0DC)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(color: Colors.black12),
-                ),
-                child: Icon(icon, size: 20, color: Colors.black54),
-              ),
-              Text(
-                actionText,
-                style: const TextStyle(
-                  color: Color(0xFFD81B60),
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
           Text(
-            title,
+            // Nombre real del backend o "Artículo #id".
+            line.etiquetaArticulo,
             style: const TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.bold,
-              color: Colors.black45,
-              letterSpacing: 0.5,
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
             ),
           ),
           const SizedBox(height: 8),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (hasVisaBadge) ...[
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 6,
-                    vertical: 2,
-                  ),
-                  decoration: BoxDecoration(
-                    border: Border.all(color: Colors.black12),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: const Text(
-                    'VISA',
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w900,
-                      color: Colors.indigo,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-              ],
-              Expanded(
-                child: Text(
-                  content,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    color: Colors.black87,
-                    height: 1.5,
-                  ),
-                ),
-              ),
-            ],
-          ),
+          _row('articulo_id', '${line.articuloId}'),
+          _row('cantidad', '${line.cantidad}'),
+          _row('precio_unitario', _fmtMoney(line.precioUnitario)),
+          _row('subtotal', _fmtMoney(line.subtotal)),
         ],
       ),
     );
   }
 
-  Widget _buildHelpRow(IconData icon, String text) {
-    return Row(
-      children: [
-        Icon(icon, size: 20, color: const Color(0xFFD81B60)),
-        const SizedBox(width: 12),
-        Text(text, style: const TextStyle(fontSize: 14, color: Colors.black87)),
-      ],
+  Widget _row(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 120,
+            child: Text(
+              label,
+              style: const TextStyle(fontSize: 12, color: Colors.black45),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: const TextStyle(fontSize: 13, color: secondaryText),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

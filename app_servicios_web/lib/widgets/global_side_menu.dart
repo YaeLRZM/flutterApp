@@ -117,24 +117,24 @@ class GlobalSideMenu extends StatelessWidget {
                       isSelected: currentRoute == 'favoritos',
                       onTap: () => onNavigate('favoritos'),
                     ),
+                    // Pantallas mock / incompletas: no navegar (próxima versión).
                     _buildDrawerItem(
                       icon: Icons.notifications_none_outlined,
-                      title: 'Notificaciones',
-                      badge: '3',
-                      isSelected: currentRoute == 'notificaciones',
-                      onTap: () => onNavigate('notificaciones'),
+                      title: 'Notificaciones (próxima versión)',
+                      isSelected: false,
+                      onTap: () => _showProximamente(context, 'Notificaciones'),
                     ),
                     _buildDrawerItem(
                       icon: Icons.chat_bubble_outline,
-                      title: 'Mis opiniones',
-                      isSelected: currentRoute == 'mis_opiniones',
-                      onTap: () => onNavigate('mis_opiniones'),
+                      title: 'Mis opiniones (próxima versión)',
+                      isSelected: false,
+                      onTap: () => _showProximamente(context, 'Mis opiniones'),
                     ),
                     _buildDrawerItem(
                       icon: Icons.credit_card_outlined,
-                      title: 'Forma de pago',
-                      isSelected: currentRoute == 'forma_pago',
-                      onTap: () => onNavigate('forma_pago'),
+                      title: 'Forma de pago (próxima versión)',
+                      isSelected: false,
+                      onTap: () => _showProximamente(context, 'Forma de pago'),
                     ),
                   ],
 
@@ -178,6 +178,16 @@ class GlobalSideMenu extends StatelessWidget {
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  void _showProximamente(BuildContext context, String feature) {
+    onClose();
+    ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+      SnackBar(
+        content: Text('$feature: próxima versión'),
+        duration: const Duration(seconds: 2),
       ),
     );
   }

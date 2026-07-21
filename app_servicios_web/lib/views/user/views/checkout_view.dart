@@ -1,26 +1,13 @@
 import 'package:flutter/material.dart';
 
-import '../../../config/data_config.dart';
 import '../../../models/articulo.dart';
 import '../../../services/articulo_service.dart';
 import 'payment_processing_view.dart';
 
-/// Vista de Checkout. Recibe los artículos a comprar (`articuloId ->
-/// cantidad`) desde `ProductDetailView` ("Comprar ahora", un solo
-/// artículo) o desde `CartView` ("Continuar compra", el carrito
-/// completo) y arma el resumen con datos reales de `ArticuloService`,
-/// igual que hace `CartView`.
-///
-/// ```dart
-/// Navigator.push(context, MaterialPageRoute(
-///   builder: (_) => CheckoutView(items: {articulo.id: 1}),
-/// ));
-/// ```
-///
-/// TODO: API -> al presionar "Finalizar Pago" esto debería crear el
-/// pedido en el backend:
-///   POST /api/pedidos  { items: [{articulo_id, cantidad}], metodo_pago }
-/// y navegar a PaymentProcessingView mientras se espera la respuesta.
+/// Checkout: resumen del carrito local + flujo de **pago simulado**.
+/// La venta real se crea solo si la simulación termina en éxito
+/// (ver [PaymentProcessingView]).
+/// Restricción v1: una sola tienda por compra.
 class CheckoutView extends StatefulWidget {
   final Map<int, int> items;
 
@@ -69,8 +56,8 @@ class _CheckoutViewState extends State<CheckoutView> {
 
   int _cantidadDe(int articuloId) => widget.items[articuloId] ?? 0;
 
-  // --- Cálculos del resumen (mismas reglas que CartView) ---
-
+  /// Total orientativo (precios de catálogo × cantidad).
+  /// El total oficial lo calcula el servidor al crear la venta.
   double get _subtotal {
     double total = 0;
     for (final a in _articulos) {
@@ -79,37 +66,40 @@ class _CheckoutViewState extends State<CheckoutView> {
     return total;
   }
 
-  double get _descuentoArtesanal {
-    double total = 0;
-    for (final a in _articulos) {
-      if (!a.tieneDescuento) continue;
-      total += (a.precio - a.precioFinal) * _cantidadDe(a.id);
-    }
-    return total;
-  }
-
-  double get _costoEnvio {
-    if (_articulos.isEmpty) return 0;
-    final subtotalConDescuento = _subtotal - _descuentoArtesanal;
-    return subtotalConDescuento >= kEnvioGratisDesde ? 0 : kCostoEnvioNacional;
-  }
-
-  double get _total => _subtotal - _descuentoArtesanal + _costoEnvio;
-
   int get _totalArticulos =>
       _articulos.fold<int>(0, (acc, a) => acc + _cantidadDe(a.id));
 
-  void _finalizarPago() {
-    // TODO: API -> antes de navegar, hacer POST /api/pedidos con
-    // widget.items y el método de pago seleccionado; usar el pedidoId
-    // real que regrese el backend en vez de simular el resultado
-    // dentro de PaymentProcessingView.
+  Set<int> get _tiendaIds =>
+      _articulos.map((a) => a.tiendaId).where((id) => id > 0).toSet();
+
+  bool get _multiTienda => _tiendaIds.length > 1;
+
+  void _continuarAPagoSimulado() {
+    if (_articulos.isEmpty) return;
+
+    if (_multiTienda) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Solo puedes comprar artículos de una misma tienda. '
+            'Ajusta el carrito e intenta de nuevo.',
+          ),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    final items = <int, int>{
+      for (final a in _articulos) a.id: _cantidadDe(a.id),
+    };
+
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (_) => PaymentProcessingView(
-          items: widget.items,
-          total: _total,
+          items: items,
+          totalEstimado: _subtotal,
         ),
       ),
     );
@@ -162,8 +152,7 @@ class _CheckoutViewState extends State<CheckoutView> {
         const SizedBox(height: 24),
         _buildItemsSummary(),
         const SizedBox(height: 24),
-        _buildPaymentMethods(),
-        const SizedBox(height: 24),
+        // Sin métodos de pago inventados: no hay pasarela en v1.
         _buildOrderTotals(),
         const SizedBox(height: 40),
       ],
@@ -172,11 +161,11 @@ class _CheckoutViewState extends State<CheckoutView> {
 
   // --- 1. Encabezado ---
   Widget _buildHeader() {
-    return const Column(
+    return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Finalizar Pago',
+        const Text(
+          'Confirmar compra',
           style: TextStyle(
             fontSize: 28,
             fontWeight: FontWeight.w900,
@@ -184,11 +173,47 @@ class _CheckoutViewState extends State<CheckoutView> {
             letterSpacing: -0.5,
           ),
         ),
-        SizedBox(height: 8),
-        Text(
-          'Por favor, revisa tus artículos y selecciona un método de pago para completar tu adquisición de lujo.',
+        const SizedBox(height: 8),
+        const Text(
+          'Siguiente paso: flujo de pago simulado (prueba). '
+          'No se cobrará dinero real. La compra en servidor se registra solo si la simulación resulta exitosa.',
           style: TextStyle(fontSize: 13, color: Colors.black54, height: 1.4),
         ),
+        const SizedBox(height: 10),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: const Color(0xFFE3F2FD),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: const Text(
+            'PAGO SIMULADO · sin pasarela · sin cobro real',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              color: Color(0xFF1565C0),
+            ),
+          ),
+        ),
+        if (_multiTienda) ...[
+          const SizedBox(height: 12),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFFEBEE),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFEF9A9A)),
+            ),
+            child: const Text(
+              'Tu carrito mezcla productos de varias tiendas. '
+              'En esta versión solo se permite una tienda por compra.',
+              style: TextStyle(fontSize: 12, color: Color(0xFFB71C1C), height: 1.35),
+            ),
+          ),
+        ],
       ],
     );
   }
@@ -308,286 +333,84 @@ class _CheckoutViewState extends State<CheckoutView> {
     );
   }
 
-  // --- 3. Métodos de Pago ---
-  // TODO: API -> hoy son estáticos; cuando exista el endpoint de
-  // métodos de pago guardados (GET /api/metodos-pago) esto debe volverse
-  // dinámico y permitir seleccionar cuál usar en _finalizarPago().
-  Widget _buildPaymentMethods() {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.03),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Método de Pago',
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: Colors.black54,
-            ),
-          ),
-          const SizedBox(height: 16),
-
-          // Opción Seleccionada (Tarjeta)
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: const Color(0xFFD81B60).withOpacity(0.03),
-              border: Border.all(color: const Color(0xFFD81B60), width: 1.5),
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Row(
-              children: [
-                const Icon(Icons.credit_card, color: Color(0xFFD81B60)),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: const [
-                      Text(
-                        'Tarjeta Crédito/Débito',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.black87,
-                        ),
-                      ),
-                      Text(
-                        'Terminada en **** 4421',
-                        style: TextStyle(fontSize: 11, color: Colors.black54),
-                      ),
-                    ],
-                  ),
-                ),
-                const Icon(Icons.check_circle, color: Color(0xFFD81B60)),
-              ],
-            ),
-          ),
-          const SizedBox(height: 12),
-
-          // Opción Inactiva (PayPal)
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              border: Border.all(color: Colors.grey.shade200),
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Row(
-              children: [
-                const Icon(
-                  Icons.account_balance_wallet_outlined,
-                  color: Colors.black54,
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: const [
-                      Text(
-                        'PayPal Express',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.black87,
-                        ),
-                      ),
-                      Text(
-                        'Paga de forma segura',
-                        style: TextStyle(fontSize: 11, color: Colors.black54),
-                      ),
-                    ],
-                  ),
-                ),
-                const Text(
-                  'PayPal',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w900,
-                    fontStyle: FontStyle.italic,
-                    color: Colors.blueAccent,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 12),
-
-          // Botón Agregar Nuevo
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              border: Border.all(
-                color: const Color(0xFFD81B60).withOpacity(0.3),
-                style: BorderStyle.solid,
-              ), // Usamos solid por simplicidad, dotted requiere package extra
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: const [
-                Icon(Icons.add_circle_outline, color: Colors.black54, size: 20),
-                SizedBox(width: 8),
-                Text(
-                  'Agregar nuevo método\nde pago',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 12, color: Colors.black54),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // --- 4. Resumen Total y Botón Final ---
+  // --- Resumen Total y Botón Final ---
   Widget _buildOrderTotals() {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: const Color(0xFFE8ECEF), // Gris azulado claro de la imagen
+        color: const Color(0xFFE8ECEF),
         borderRadius: BorderRadius.circular(24),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            'Resumen de Orden',
+            'Resumen (orientativo)',
             style: TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w600,
               color: Color(0xFFD81B60),
             ),
           ),
-          const SizedBox(height: 20),
-
-          _buildTotalRow('Subtotal', '\$${_subtotal.toStringAsFixed(2)}'),
-          const SizedBox(height: 12),
-          _buildTotalRow(
-            'Envío Asegurado',
-            _costoEnvio == 0
-                ? 'GRATIS'
-                : '\$${_costoEnvio.toStringAsFixed(2)}',
-            isFree: _costoEnvio == 0,
+          const SizedBox(height: 8),
+          Text(
+            '$_totalArticulos artículo(s) · una tienda por compra',
+            style: const TextStyle(fontSize: 12, color: Colors.black54),
           ),
-          if (_descuentoArtesanal > 0) ...[
-            const SizedBox(height: 12),
-            _buildTotalRow(
-              'Descuento Artesanal',
-              '-\$${_descuentoArtesanal.toStringAsFixed(2)}',
-              isFree: true,
-            ),
-          ],
-          const SizedBox(height: 12),
-          _buildTotalRow('Impuestos (IVA)', 'Incluido'),
-
+          const SizedBox(height: 16),
+          _buildTotalRow(
+            'Subtotal catálogo',
+            '\$${_subtotal.toStringAsFixed(2)}',
+          ),
           const Padding(
-            padding: EdgeInsets.symmetric(vertical: 20),
+            padding: EdgeInsets.symmetric(vertical: 16),
             child: Divider(color: Colors.black12, height: 1),
           ),
-
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               const Text(
-                'Total',
+                'Total estimado',
                 style: TextStyle(fontSize: 14, color: Colors.black54),
               ),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(
-                    '\$${_total.toStringAsFixed(2)}',
-                    style: const TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.w900,
-                      color: Color(0xFFD81B60),
-                    ),
-                  ),
-                  const SizedBox(width: 4),
-                  const Padding(
-                    padding: EdgeInsets.only(bottom: 3),
-                    child: Text(
-                      'MXN',
-                      style: TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black54,
-                      ),
-                    ),
-                  ),
-                ],
+              Text(
+                '\$${_subtotal.toStringAsFixed(2)}',
+                style: const TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.w900,
+                  color: Color(0xFFD81B60),
+                ),
               ),
             ],
           ),
-          const SizedBox(height: 24),
-
-          // Badge de Garantía
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.6),
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: const [
-                Icon(Icons.shield_outlined, color: Colors.orange, size: 20),
-                SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    'Tu pago está protegido por nuestra garantía de autenticidad Ixé. Si no estás satisfecho con la calidad artesanal, devolvemos tu dinero.',
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: Colors.black54,
-                      height: 1.4,
-                    ),
-                  ),
-                ),
-              ],
-            ),
+          const SizedBox(height: 8),
+          const Text(
+            'Sin envío ni pasarela. El total final lo define el servidor.',
+            style: TextStyle(fontSize: 11, color: Colors.black45),
           ),
-          const SizedBox(height: 24),
-
-          // Botón Pagar
+          const SizedBox(height: 20),
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
-              onPressed: _finalizarPago,
+              onPressed: (_multiTienda || _articulos.isEmpty)
+                  ? null
+                  : _continuarAPagoSimulado,
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFFD81B60),
+                disabledBackgroundColor: Colors.grey.shade400,
                 padding: const EdgeInsets.symmetric(vertical: 18),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(24),
                 ),
                 elevation: 0,
               ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: const [
-                  Text(
-                    'Finalizar Pago',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 15,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  SizedBox(width: 8),
-                  Icon(Icons.lock_outline, color: Colors.white, size: 18),
-                ],
+              child: const Text(
+                'Continuar a pago simulado',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 15,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
           ),

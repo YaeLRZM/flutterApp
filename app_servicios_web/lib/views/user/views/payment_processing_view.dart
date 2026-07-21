@@ -1,28 +1,28 @@
 import 'package:flutter/material.dart';
 
 import '../../../services/carrito_service.dart';
+import '../../../services/venta_service.dart';
 import 'payment_denied_view.dart';
 import 'payment_success_view.dart';
 
-/// Vista de "procesando pago". Recibe los artículos y el total que
-/// vienen de `CheckoutView`, simula la validación con el banco y
-/// navega automáticamente a `PaymentSuccessView` (o `PaymentDeniedView`,
-/// dejado listo aunque hoy no se dispare) según el resultado.
+/// Procesamiento de **pago simulado** (no hay pasarela ni cobro real).
 ///
-/// TODO: API -> hoy simula el resultado del pago (siempre éxito, con un
-/// retraso fijo vía `Future.delayed`). Cuando exista el endpoint real,
-/// `_procesarPago` debe esperar la respuesta de POST /api/pedidos (o
-/// consultar su estado) y navegar a PaymentSuccessView o
-/// PaymentDeniedView según lo que regrese Laravel, en vez de simular
-/// siempre éxito.
+/// La venta real (POST /api/ventas) se crea **solo si** el resultado
+/// simulado es éxito. En rechazo no se crea venta ni se toca stock.
 class PaymentProcessingView extends StatefulWidget {
   final Map<int, int> items;
-  final double total;
+  final double totalEstimado;
+
+  /// Si es true, al terminar la espera se fuerza éxito.
+  /// Si es false, se fuerza rechazo.
+  /// Si es null, se muestran botones para elegir el resultado de la simulación.
+  final bool? forceSimulateSuccess;
 
   const PaymentProcessingView({
     super.key,
     required this.items,
-    required this.total,
+    required this.totalEstimado,
+    this.forceSimulateSuccess,
   });
 
   @override
@@ -30,42 +30,67 @@ class PaymentProcessingView extends StatefulWidget {
 }
 
 class _PaymentProcessingViewState extends State<PaymentProcessingView> {
+  final _ventaService = VentaService();
+
+  bool _esperando = true;
+  bool _registrandoCompra = false;
+  String? _errorRegistro;
+
   @override
   void initState() {
     super.initState();
-    _procesarPago();
+    _iniciarSimulacion();
   }
 
-  Future<void> _procesarPago() async {
-    // TODO: API -> reemplazar por la llamada real y esperar su
-    // resultado en vez de un retraso fijo simulado.
-    await Future.delayed(const Duration(seconds: 3));
+  Future<void> _iniciarSimulacion() async {
+    await Future.delayed(const Duration(seconds: 2));
     if (!mounted) return;
 
-    // Simulación: el pago siempre es exitoso por ahora. `_irADenegado`
-    // queda listo (sin usarse) para cuando el backend pueda regresar
-    // un rechazo real.
-    _irAExitoso();
-  }
-
-  void _irAExitoso() {
-    // Quita del carrito los artículos que se acaban de comprar (si el
-    // pedido venía de "Comprar ahora" y no del carrito, esto no hace
-    // nada porque esos ids nunca estuvieron ahí).
-    for (final articuloId in widget.items.keys) {
-      CarritoService.instance.quitar(articuloId);
+    final forced = widget.forceSimulateSuccess;
+    if (forced == true) {
+      await _resolverExito();
+      return;
+    }
+    if (forced == false) {
+      _irADenegado();
+      return;
     }
 
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(
-        builder: (_) =>
-            PaymentSuccessView(items: widget.items, total: widget.total),
-      ),
-    );
+    // Controlado por el usuario: elegir éxito o rechazo simulado.
+    setState(() => _esperando = false);
   }
 
-  // ignore: unused_element
+  Future<void> _resolverExito() async {
+    setState(() {
+      _registrandoCompra = true;
+      _errorRegistro = null;
+    });
+
+    try {
+      final venta = await _ventaService.crearCompra(items: widget.items);
+      CarritoService.instance.vaciar();
+
+      if (!mounted) return;
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (_) => PaymentSuccessView(
+            ventaId: venta.id,
+            total: venta.total,
+            estado: venta.estado,
+          ),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _registrandoCompra = false;
+        _esperando = false;
+        _errorRegistro = e.toString().replaceFirst('Exception: ', '');
+      });
+    }
+  }
+
   void _irADenegado() {
     Navigator.pushReplacement(
       context,
@@ -78,238 +103,184 @@ class _PaymentProcessingViewState extends State<PaymentProcessingView> {
   @override
   Widget build(BuildContext context) {
     return PopScope(
-      // Evita que el usuario interrumpa la validación a medias con el
-      // botón/gesto de "atrás" mientras se simula el pago.
-      canPop: false,
+      canPop: !_registrandoCompra && !_esperando,
       child: Scaffold(
         backgroundColor: const Color(0xFFF8F5F2),
         body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              // Contenedor blanco central estilo tarjeta
-              Expanded(
-                child: Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(24.0),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(32),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.02),
-                        blurRadius: 20,
-                        offset: const Offset(0, 10),
-                      ),
-                    ],
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+            child: Column(
+              children: [
+                Expanded(
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(28),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.03),
+                          blurRadius: 16,
+                          offset: const Offset(0, 6),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 6,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFE3F2FD),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(color: const Color(0xFF90CAF9)),
+                          ),
+                          child: const Text(
+                            'PAGO SIMULADO',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w800,
+                              color: Color(0xFF1565C0),
+                              letterSpacing: 0.6,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                        const Text(
+                          'Esta app usa un flujo de pago de prueba; '
+                          'no se realizará ningún cobro real.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: Colors.black54,
+                            height: 1.4,
+                          ),
+                        ),
+                        const SizedBox(height: 28),
+                        if (_registrandoCompra) ...[
+                          const CircularProgressIndicator(
+                            color: Color(0xFFD81B60),
+                          ),
+                          const SizedBox(height: 20),
+                          const Text(
+                            'Registrando compra en el servidor…',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ] else if (_esperando) ...[
+                          const CircularProgressIndicator(
+                            color: Color(0xFFD81B60),
+                          ),
+                          const SizedBox(height: 20),
+                          const Text(
+                            'Simulando pago de prueba…',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Total estimado: \$${widget.totalEstimado.toStringAsFixed(2)}',
+                            style: const TextStyle(
+                              fontSize: 13,
+                              color: Colors.black45,
+                            ),
+                          ),
+                        ] else ...[
+                          const Text(
+                            'Elige el resultado de la simulación',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          const Text(
+                            'No hay banco ni pasarela. Solo controlas el resultado de prueba.',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(fontSize: 12, color: Colors.black54),
+                          ),
+                          if (_errorRegistro != null) ...[
+                            const SizedBox(height: 12),
+                            Text(
+                              _errorRegistro!,
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                color: Colors.red,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ],
+                          const SizedBox(height: 24),
+                          SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton(
+                              onPressed: _resolverExito,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF00BFA5),
+                                padding: const EdgeInsets.symmetric(vertical: 14),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                              ),
+                              child: const Text(
+                                'Simular éxito',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          SizedBox(
+                            width: double.infinity,
+                            child: OutlinedButton(
+                              onPressed: _irADenegado,
+                              style: OutlinedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(vertical: 14),
+                                side: const BorderSide(color: Color(0xFFC62828)),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                              ),
+                              child: const Text(
+                                'Simular rechazo',
+                                style: TextStyle(
+                                  color: Color(0xFFC62828),
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
                   ),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Text(
-                        'Artesania Premium',
-                        style: TextStyle(
-                          color: Color(0xFFD81B60),
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 0.5,
-                        ),
-                      ),
-                      const SizedBox(height: 32),
-
-                      // Logotipo abstracto simulado con formas concéntricas
-                      _buildAbstractLoader(),
-
-                      const SizedBox(height: 40),
-                      const Text(
-                        'Validando tu pago...',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.black87,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      const Text(
-                        'Estamos conectando con tu banco de forma segura para confirmar tu pedido.',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: Colors.black54,
-                          height: 1.5,
-                        ),
-                      ),
-                      const SizedBox(height: 32),
-
-                      // Badges de Seguridad
-                      _buildSecurityBadge(
-                        Icons.lock_outline,
-                        'Cifrado SSL de 256 bits',
-                        const Color(0xFF00BFA5),
-                      ),
-                      const SizedBox(height: 12),
-                      _buildSecurityBadge(
-                        Icons.security,
-                        'Pago Seguro',
-                        const Color(0xFFD81B60),
-                      ),
-
-                      const SizedBox(height: 40),
-
-                      // Barra de progreso inferior estática (15%)
-                      _buildProgressBar(),
-                    ],
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'IXÉ · FLUJO DE PRUEBA SIN COBRO',
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black38,
+                    letterSpacing: 1.2,
                   ),
                 ),
-              ),
-              const SizedBox(height: 24),
-              // Footer
-              const Text(
-                'IXÉ MODA - HERENCIA TEXTIL',
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black38,
-                  letterSpacing: 1.5,
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
         ),
       ),
-    );
-  }
-
-  Widget _buildAbstractLoader() {
-    return Stack(
-      alignment: Alignment.center,
-      children: [
-        Container(
-          width: 140,
-          height: 140,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            border: Border.all(
-              color: const Color(0xFFD81B60).withOpacity(0.15),
-              width: 2,
-            ),
-          ),
-        ),
-        Container(
-          width: 100,
-          height: 100,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            border: Border.all(
-              color: const Color(0xFFD81B60).withOpacity(0.08),
-              width: 1.5,
-            ),
-          ),
-        ),
-        // Icono interno o vector que asemeja el logo del ojo/hoja estilizado
-        Transform.rotate(
-          angle: 0.7,
-          child: Container(
-            width: 55,
-            height: 55,
-            decoration: BoxDecoration(
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(40),
-                bottomRight: Radius.circular(40),
-              ),
-              border: Border.all(color: const Color(0xFFD81B60), width: 2),
-            ),
-            child: Center(
-              child: Container(
-                width: 12,
-                height: 12,
-                decoration: const BoxDecoration(
-                  color: Color(0xFFD81B60),
-                  shape: BoxShape.circle,
-                ),
-              ),
-            ),
-          ),
-        ),
-        // Destello superior derecho
-        const Positioned(
-          top: 14,
-          right: 14,
-          child: Icon(Icons.auto_awesome, color: Color(0xFFD81B60), size: 16),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildSecurityBadge(IconData icon, String text, Color iconColor) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-      decoration: BoxDecoration(
-        color: const Color(0xFFEEF4FB),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 16, color: iconColor),
-          const SizedBox(width: 8),
-          Text(
-            text,
-            style: const TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: Colors.black87,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildProgressBar() {
-    return Column(
-      children: [
-        Container(
-          width: double.infinity,
-          height: 4,
-          decoration: BoxDecoration(
-            color: Colors.grey[200],
-            borderRadius: BorderRadius.circular(2),
-          ),
-          child: Align(
-            alignment: Alignment.centerLeft,
-            child: Container(
-              width: 50, // Representa el 15% visual
-              height: 4,
-              decoration: BoxDecoration(
-                color: const Color(0xFFD81B60),
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(height: 8),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: const [
-            Text(
-              'Verificando fondos',
-              style: TextStyle(fontSize: 12, color: Colors.black38),
-            ),
-            Text(
-              '15%',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFFD81B60),
-              ),
-            ),
-          ],
-        ),
-      ],
     );
   }
 }
