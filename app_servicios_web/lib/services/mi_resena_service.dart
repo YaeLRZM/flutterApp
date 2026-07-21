@@ -21,6 +21,21 @@ class MiResenaItem {
     this.createdAt,
   });
 
+  MiResenaItem copyWith({
+    int? calificacion,
+    String? comentario,
+    String? articuloNombre,
+  }) {
+    return MiResenaItem(
+      id: id,
+      articuloId: articuloId,
+      articuloNombre: articuloNombre ?? this.articuloNombre,
+      calificacion: calificacion ?? this.calificacion,
+      comentario: comentario ?? this.comentario,
+      createdAt: createdAt,
+    );
+  }
+
   factory MiResenaItem.fromJson(Map<String, dynamic> json) {
     final art = json['articulo'];
     String nombre = 'Artículo';
@@ -49,6 +64,26 @@ class MiResenaItem {
 }
 
 class MiResenaService {
+  String _err(String body, int status, String fallback) {
+    try {
+      final decoded = jsonDecode(body);
+      if (decoded is Map) {
+        final errors = decoded['errors'];
+        if (errors is Map && errors.isNotEmpty) {
+          final first = errors.values.first;
+          if (first is List && first.isNotEmpty) {
+            return first.first.toString();
+          }
+        }
+        final msg = decoded['message'] ?? decoded['mensaje'];
+        if (msg != null && msg.toString().trim().isNotEmpty) {
+          return msg.toString();
+        }
+      }
+    } catch (_) {}
+    return '$fallback ($status)';
+  }
+
   Future<List<MiResenaItem>> fetchMias({bool alreadyRetried = false}) async {
     final headers =
         await ApiService().getAuthHeaders(includeContentType: false);
@@ -68,7 +103,7 @@ class MiResenaService {
     }
     if (response.statusCode != 200) {
       throw Exception(
-        'No se pudieron cargar tus opiniones (${response.statusCode})',
+        _err(response.body, response.statusCode, 'No se pudieron cargar tus opiniones'),
       );
     }
 
@@ -83,5 +118,89 @@ class MiResenaService {
       }
     }
     return out;
+  }
+
+  /// PUT /api/opiniones/{id}
+  Future<MiResenaItem> actualizar({
+    required int id,
+    required int calificacion,
+    required String comentario,
+    bool alreadyRetried = false,
+  }) async {
+    final headers = await ApiService().getAuthHeaders();
+    final response = await http.put(
+      Uri.parse('${ApiService.baseUrl}/opiniones/$id'),
+      headers: headers,
+      body: jsonEncode({
+        'calificacion': calificacion,
+        'comentario': comentario,
+      }),
+    );
+
+    if (response.statusCode == 401) {
+      if (!alreadyRetried) {
+        final recovered = await ApiService().recoverFromUnauthorized();
+        if (recovered) {
+          return actualizar(
+            id: id,
+            calificacion: calificacion,
+            comentario: comentario,
+            alreadyRetried: true,
+          );
+        }
+      } else {
+        await ApiService().onUnauthorized();
+      }
+      throw Exception('Sesión expirada. Vuelve a iniciar sesión.');
+    }
+    if (response.statusCode == 403) {
+      throw Exception('No puedes editar esta opinión.');
+    }
+    if (response.statusCode != 200) {
+      throw Exception(
+        _err(response.body, response.statusCode, 'No se pudo actualizar la opinión'),
+      );
+    }
+
+    final decoded = jsonDecode(response.body);
+    Map<String, dynamic>? map;
+    if (decoded is Map && decoded['resena'] is Map) {
+      map = Map<String, dynamic>.from(decoded['resena'] as Map);
+    } else if (decoded is Map && decoded['data'] is Map) {
+      map = Map<String, dynamic>.from(decoded['data'] as Map);
+    } else if (decoded is Map) {
+      map = Map<String, dynamic>.from(decoded);
+    }
+    if (map == null) {
+      throw Exception('Respuesta de actualización inválida');
+    }
+    return MiResenaItem.fromJson(map);
+  }
+
+  /// DELETE /api/opiniones/{id}
+  Future<void> eliminar(int id, {bool alreadyRetried = false}) async {
+    final headers = await ApiService().getAuthHeaders();
+    final response = await http.delete(
+      Uri.parse('${ApiService.baseUrl}/opiniones/$id'),
+      headers: headers,
+    );
+
+    if (response.statusCode == 401) {
+      if (!alreadyRetried) {
+        final recovered = await ApiService().recoverFromUnauthorized();
+        if (recovered) return eliminar(id, alreadyRetried: true);
+      } else {
+        await ApiService().onUnauthorized();
+      }
+      throw Exception('Sesión expirada. Vuelve a iniciar sesión.');
+    }
+    if (response.statusCode == 403) {
+      throw Exception('No puedes eliminar esta opinión.');
+    }
+    if (response.statusCode != 200 && response.statusCode != 204) {
+      throw Exception(
+        _err(response.body, response.statusCode, 'No se pudo eliminar la opinión'),
+      );
+    }
   }
 }

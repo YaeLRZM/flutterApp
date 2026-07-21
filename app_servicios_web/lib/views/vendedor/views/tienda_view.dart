@@ -33,7 +33,8 @@ class _TiendaViewState extends State<TiendaView> {
   String? _estatusVendedor;
   int _totalProductos = 0;
   int _publicados = 0;
-  List<Articulo> _previewProductos = [];
+  /// Misma fuente que Mis productos (todos, incluidos ocultos).
+  List<Articulo> _productos = [];
 
   @override
   void initState() {
@@ -81,7 +82,7 @@ class _TiendaViewState extends State<TiendaView> {
       final rfc = tienda['rfc_moral']?.toString().trim();
       final estatus = vendedor['estatus']?.toString().trim();
 
-      // Contador + preview liviano (reutiliza el mismo endpoint de Mis productos).
+      // Misma fuente que Mis productos: GET /articulos?tienda=&incluir_no_disponibles=1
       final productos = await _articuloService.fetchArticulosPorTienda(
         tiendaId,
         limit: 100,
@@ -99,7 +100,8 @@ class _TiendaViewState extends State<TiendaView> {
             (estatus == null || estatus.isEmpty) ? null : estatus;
         _totalProductos = productos.length;
         _publicados = publicados;
-        _previewProductos = productos.take(5).toList();
+        // Antes: take(5) → lista incompleta vs Mis productos. Mostrar todos.
+        _productos = productos;
         _loading = false;
       });
     } catch (e) {
@@ -208,12 +210,19 @@ class _TiendaViewState extends State<TiendaView> {
                     ),
                   ),
                   const SizedBox(height: 4),
-                  const Text(
-                    'Vista rápida (gestión completa en Mis productos)',
-                    style: TextStyle(fontSize: 12, color: colorTextoSecundario),
+                  Text(
+                    _totalProductos == 0
+                        ? 'Aún no hay productos'
+                        : '$_totalProductos producto(s) · $_publicados publicado(s) · '
+                            '${_totalProductos - _publicados} oculto(s). '
+                            'Gestión completa en Mis productos.',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: colorTextoSecundario,
+                    ),
                   ),
                   const SizedBox(height: 12),
-                  _buildListaPreview(),
+                  _buildListaProductos(),
                   const SizedBox(height: 32),
                 ],
               ),
@@ -456,8 +465,8 @@ class _TiendaViewState extends State<TiendaView> {
     );
   }
 
-  Widget _buildListaPreview() {
-    if (_previewProductos.isEmpty) {
+  Widget _buildListaProductos() {
+    if (_productos.isEmpty) {
       return Container(
         width: double.infinity,
         padding: const EdgeInsets.all(20),
@@ -475,9 +484,9 @@ class _TiendaViewState extends State<TiendaView> {
 
     return Column(
       children: [
-        for (var i = 0; i < _previewProductos.length; i++) ...[
+        for (var i = 0; i < _productos.length; i++) ...[
           if (i > 0) const SizedBox(height: 10),
-          _buildFilaProducto(_previewProductos[i]),
+          _buildFilaProducto(_productos[i]),
         ],
       ],
     );
