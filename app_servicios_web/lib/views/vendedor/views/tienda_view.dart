@@ -4,6 +4,7 @@ import '../../../models/articulo.dart';
 import '../../../services/api_service.dart';
 import '../../../services/articulo_service.dart';
 import '../../../services/tienda_service.dart';
+import '../../../widgets/app_ui.dart';
 
 /// Mi tienda del vendedor: lectura real + edición mínima (nombre/descripción).
 class TiendaView extends StatefulWidget {
@@ -155,36 +156,11 @@ class _TiendaViewState extends State<TiendaView> {
 
   Widget _buildBody() {
     if (_loading) {
-      return const Center(child: CircularProgressIndicator());
+      return const AppLoadingView();
     }
 
     if (_error != null) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.store_outlined, size: 48, color: Colors.black38),
-              const SizedBox(height: 12),
-              Text(
-                _error!,
-                textAlign: TextAlign.center,
-                style: const TextStyle(color: colorTextoSecundario),
-              ),
-              const SizedBox(height: 16),
-              ElevatedButton(
-                onPressed: _cargar,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: colorBugambilia,
-                  foregroundColor: Colors.white,
-                ),
-                child: const Text('Reintentar'),
-              ),
-            ],
-          ),
-        ),
-      );
+      return AppErrorView(message: _error!, onRetry: _cargar);
     }
 
     return RefreshIndicator(

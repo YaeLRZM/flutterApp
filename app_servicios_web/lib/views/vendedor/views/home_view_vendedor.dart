@@ -2,11 +2,22 @@ import 'package:flutter/material.dart';
 
 import '../../../services/api_service.dart';
 import '../../../services/articulo_service.dart';
+import '../../../services/venta_service.dart';
+import '../../../widgets/app_ui.dart';
 
-/// Panel de vendedor: solo datos reales (me + conteo de productos).
-/// Sin métricas de ventas inventadas ni gráficos mock.
+/// Panel de vendedor: solo datos reales (me + productos + conteo de ventas).
+/// Sin métricas inventadas. Accesos rápidos a módulos reales.
 class HomeViewVendedor extends StatefulWidget {
-  const HomeViewVendedor({super.key});
+  final VoidCallback? onIrAProductos;
+  final VoidCallback? onIrAVentas;
+  final VoidCallback? onIrATienda;
+
+  const HomeViewVendedor({
+    super.key,
+    this.onIrAProductos,
+    this.onIrAVentas,
+    this.onIrATienda,
+  });
 
   @override
   State<HomeViewVendedor> createState() => _HomeViewVendedorState();
@@ -17,6 +28,7 @@ class _HomeViewVendedorState extends State<HomeViewVendedor> {
   static const Color secondaryText = Color(0xFF5E6668);
 
   final _articuloService = ArticuloService();
+  final _ventaService = VentaService();
 
   bool _loading = true;
   String? _error;
@@ -25,6 +37,8 @@ class _HomeViewVendedorState extends State<HomeViewVendedor> {
   int _totalProductos = 0;
   int _publicados = 0;
   int _ocultos = 0;
+  int _totalVentas = 0;
+  double _sumaVentas = 0;
 
   @override
   void initState() {
@@ -76,6 +90,17 @@ class _HomeViewVendedorState extends State<HomeViewVendedor> {
         publicados = productos.where((p) => p.disponible).length;
       }
 
+      // Ventas de la tienda (scope backend = tienda del vendedor).
+      var ventasCount = 0;
+      var ventasSuma = 0.0;
+      try {
+        final ventas = await _ventaService.fetchMisVentas();
+        ventasCount = ventas.count;
+        ventasSuma = ventas.sumaTotales;
+      } catch (_) {
+        // No bloquear el panel si fallan ventas; se muestra 0 / reintentar global.
+      }
+
       if (!mounted) return;
       setState(() {
         _userNombre =
@@ -84,6 +109,8 @@ class _HomeViewVendedorState extends State<HomeViewVendedor> {
         _totalProductos = total;
         _publicados = publicados;
         _ocultos = total - publicados;
+        _totalVentas = ventasCount;
+        _sumaVentas = ventasSuma;
         _loading = false;
       });
     } catch (e) {
@@ -95,33 +122,18 @@ class _HomeViewVendedorState extends State<HomeViewVendedor> {
     }
   }
 
+  void _proximaVersion(String feature) {
+    AppUi.showProximamente(context, feature: feature);
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_loading) {
-      return const Center(child: CircularProgressIndicator());
+      return const AppLoadingView();
     }
 
     if (_error != null) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(_error!, textAlign: TextAlign.center),
-              const SizedBox(height: 12),
-              ElevatedButton(
-                onPressed: _cargar,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: primaryColor,
-                  foregroundColor: Colors.white,
-                ),
-                child: const Text('Reintentar'),
-              ),
-            ],
-          ),
-        ),
-      );
+      return AppErrorView(message: _error!, onRetry: _cargar);
     }
 
     return RefreshIndicator(
@@ -152,12 +164,35 @@ class _HomeViewVendedorState extends State<HomeViewVendedor> {
             ),
             const SizedBox(height: 4),
             const Text(
-              'Resumen de catálogo (artículos de tu tienda). Ventas en la pestaña Mis ventas.',
+              'Resumen con datos reales de catálogo y ventas de tu tienda.',
               style: TextStyle(fontSize: 13, color: secondaryText, height: 1.4),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 16),
 
-            // Métricas REALES (solo productos)
+            // Accesos rápidos a módulos reales
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                _quickChip(
+                  label: 'Productos',
+                  icon: Icons.inventory_2_outlined,
+                  onTap: widget.onIrAProductos,
+                ),
+                _quickChip(
+                  label: 'Ventas',
+                  icon: Icons.receipt_long_outlined,
+                  onTap: widget.onIrAVentas,
+                ),
+                _quickChip(
+                  label: 'Mi tienda',
+                  icon: Icons.storefront_outlined,
+                  onTap: widget.onIrATienda,
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+
             _buildStatCard(
               title: 'PRODUCTOS',
               value: '$_totalProductos',
@@ -165,6 +200,7 @@ class _HomeViewVendedorState extends State<HomeViewVendedor> {
               icon: Icons.inventory_2_outlined,
               iconBg: const Color(0xFFF3E5F5),
               iconColor: const Color(0xFF8E24AA),
+              onTap: widget.onIrAProductos,
             ),
             const SizedBox(height: 12),
             _buildStatCard(
@@ -174,6 +210,7 @@ class _HomeViewVendedorState extends State<HomeViewVendedor> {
               icon: Icons.visibility_outlined,
               iconBg: const Color(0xFFE8F5E9),
               iconColor: const Color(0xFF2E7D32),
+              onTap: widget.onIrAProductos,
             ),
             const SizedBox(height: 12),
             _buildStatCard(
@@ -183,16 +220,32 @@ class _HomeViewVendedorState extends State<HomeViewVendedor> {
               icon: Icons.visibility_off_outlined,
               iconBg: const Color(0xFFFFF3E0),
               iconColor: const Color(0xFFF57C00),
+              onTap: widget.onIrAProductos,
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 12),
+            _buildStatCard(
+              title: 'VENTAS',
+              value: '$_totalVentas',
+              subtitle:
+                  'Suma totales: \$${_sumaVentas.toStringAsFixed(2)} (API tienda)',
+              icon: Icons.receipt_long_outlined,
+              iconBg: const Color(0xFFE3F2FD),
+              iconColor: const Color(0xFF1565C0),
+              onTap: widget.onIrAVentas,
+            ),
+            const SizedBox(height: 20),
 
-            // Módulos aún sin backend: sin números
-            _buildComingSoonCard(
-              icon: Icons.bar_chart_outlined,
-              title: 'Analítica',
-              message: 'Próxima versión: visitas y crecimiento de ventas.',
+            InkWell(
+              onTap: () => _proximaVersion('Analítica'),
+              borderRadius: BorderRadius.circular(16),
+              child: _buildComingSoonCard(
+                icon: Icons.bar_chart_outlined,
+                title: 'Analítica',
+                message:
+                    'Próxima versión: visitas y tendencias (sin métricas inventadas).',
+              ),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 20),
 
             Container(
               width: double.infinity,
@@ -206,16 +259,13 @@ class _HomeViewVendedorState extends State<HomeViewVendedor> {
                 children: [
                   Text(
                     'Módulos listos',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                   ),
                   SizedBox(height: 8),
                   Text(
-                    '• Mis productos — crear, editar, publicar/ocultar, imagen URL\n'
+                    '• Productos — crear, editar, stock, publicar/ocultar, imagen URL\n'
                     '• Mi tienda — ver y editar nombre/descripción\n'
-                    '• Mis ventas — listado real por tienda',
+                    '• Ventas — listado y detalle por tienda',
                     style: TextStyle(
                       fontSize: 13,
                       color: secondaryText,
@@ -232,6 +282,20 @@ class _HomeViewVendedorState extends State<HomeViewVendedor> {
     );
   }
 
+  Widget _quickChip({
+    required String label,
+    required IconData icon,
+    VoidCallback? onTap,
+  }) {
+    return ActionChip(
+      avatar: Icon(icon, size: 18, color: primaryColor),
+      label: Text(label),
+      onPressed: onTap,
+      backgroundColor: Colors.white,
+      side: const BorderSide(color: Color(0xFFE0BEC6)),
+    );
+  }
+
   Widget _buildStatCard({
     required String title,
     required String value,
@@ -239,8 +303,9 @@ class _HomeViewVendedorState extends State<HomeViewVendedor> {
     required IconData icon,
     required Color iconBg,
     required Color iconColor,
+    VoidCallback? onTap,
   }) {
-    return Container(
+    final card = Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: Colors.white,
@@ -291,6 +356,16 @@ class _HomeViewVendedorState extends State<HomeViewVendedor> {
         ],
       ),
     );
+
+    if (onTap == null) return card;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: card,
+      ),
+    );
   }
 
   Widget _buildComingSoonCard({
@@ -324,14 +399,12 @@ class _HomeViewVendedorState extends State<HomeViewVendedor> {
                 const SizedBox(height: 2),
                 Text(
                   message,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    color: secondaryText,
-                  ),
+                  style: const TextStyle(fontSize: 13, color: secondaryText),
                 ),
               ],
             ),
           ),
+          const Icon(Icons.chevron_right, color: Colors.black26),
         ],
       ),
     );

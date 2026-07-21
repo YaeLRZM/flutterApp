@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../services/carrito_service.dart';
 import '../../../services/venta_service.dart';
+import '../../../widgets/app_ui.dart';
 import 'payment_denied_view.dart';
 import 'payment_success_view.dart';
 
@@ -129,26 +130,7 @@ class _PaymentProcessingViewState extends State<PaymentProcessingView> {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 6,
-                          ),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFE3F2FD),
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(color: const Color(0xFF90CAF9)),
-                          ),
-                          child: const Text(
-                            'PAGO SIMULADO',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w800,
-                              color: Color(0xFF1565C0),
-                              letterSpacing: 0.6,
-                            ),
-                          ),
-                        ),
+                        AppStatusBadge.pagoSimulado(),
                         const SizedBox(height: 20),
                         const Text(
                           'Esta app usa un flujo de pago de prueba; '

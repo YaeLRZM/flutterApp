@@ -52,7 +52,8 @@ class GlobalSideMenu extends StatelessWidget {
                   const SizedBox(width: 15),
                   Expanded(
                     child: Text(
-                      'Elena García',
+                      // Sin nombre inventado: el perfil real está en Configuración (/me).
+                      isSeller ? 'Cuenta vendedor' : 'Cuenta comprador',
                       style: GoogleFonts.poppins(
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
@@ -86,7 +87,7 @@ class GlobalSideMenu extends StatelessWidget {
                   if (isSeller) ...[
                     _buildDrawerItem(
                       icon: Icons.inventory_2_outlined,
-                      title: 'Productos',
+                      title: 'Mis productos',
                       isSelected: currentRoute == 'productos',
                       onTap: () => onNavigate('productos'),
                     ),
@@ -98,7 +99,7 @@ class GlobalSideMenu extends StatelessWidget {
                     ),
                     _buildDrawerItem(
                       icon: Icons.receipt_long_outlined,
-                      title: 'Ventas realizadas',
+                      title: 'Mis ventas',
                       isSelected: currentRoute == 'ventas',
                       onTap: () => onNavigate('ventas'),
                     ),
@@ -117,24 +118,24 @@ class GlobalSideMenu extends StatelessWidget {
                       isSelected: currentRoute == 'favoritos',
                       onTap: () => onNavigate('favoritos'),
                     ),
-                    // Pantallas mock / incompletas: no navegar (próxima versión).
+                    // Placeholders honestos (pantallas “próxima versión”, no mock de datos).
                     _buildDrawerItem(
                       icon: Icons.notifications_none_outlined,
-                      title: 'Notificaciones (próxima versión)',
-                      isSelected: false,
-                      onTap: () => _showProximamente(context, 'Notificaciones'),
+                      title: 'Notificaciones',
+                      isSelected: currentRoute == 'notificaciones',
+                      onTap: () => onNavigate('notificaciones'),
                     ),
                     _buildDrawerItem(
                       icon: Icons.chat_bubble_outline,
-                      title: 'Mis opiniones (próxima versión)',
-                      isSelected: false,
-                      onTap: () => _showProximamente(context, 'Mis opiniones'),
+                      title: 'Mis opiniones',
+                      isSelected: currentRoute == 'mis_opiniones',
+                      onTap: () => onNavigate('mis_opiniones'),
                     ),
                     _buildDrawerItem(
                       icon: Icons.credit_card_outlined,
-                      title: 'Forma de pago (próxima versión)',
-                      isSelected: false,
-                      onTap: () => _showProximamente(context, 'Forma de pago'),
+                      title: 'Formas de pago',
+                      isSelected: currentRoute == 'forma_pago',
+                      onTap: () => onNavigate('forma_pago'),
                     ),
                   ],
 
@@ -178,16 +179,6 @@ class GlobalSideMenu extends StatelessWidget {
             ),
           ),
         ),
-      ),
-    );
-  }
-
-  void _showProximamente(BuildContext context, String feature) {
-    onClose();
-    ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-      SnackBar(
-        content: Text('$feature: próxima versión'),
-        duration: const Duration(seconds: 2),
       ),
     );
   }

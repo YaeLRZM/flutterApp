@@ -3,13 +3,11 @@ import 'package:flutter/material.dart';
 import '../../../models/categoria.dart';
 import '../../../services/articulo_service.dart';
 import '../../../services/categoria_service.dart';
+import '../../../widgets/app_ui.dart';
 import '../../../widgets/category_collection_card.dart';
 import 'category_detail_view.dart';
 
-/// Vista de Colecciones: muestra cada categoría como una tarjeta grande
-/// con imagen, degradado y una etiqueta "CURADURÍA PREMIUM" para las
-/// destacadas. Los datos vienen de `CategoriaService` / `ArticuloService`
-/// (hoy mock, mañana Laravel).
+/// Vista de Colecciones: categorías reales vía API.
 ///
 /// Se llega aquí de dos formas:
 ///  - Como pestaña del bottom nav (`UserLayout`).
@@ -92,26 +90,11 @@ class _CollectionsViewState extends State<CollectionsView> {
 
   Widget _buildBody() {
     if (_loading) {
-      return const Center(child: CircularProgressIndicator());
+      return const AppLoadingView();
     }
 
     if (_error != null) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(_error!, textAlign: TextAlign.center),
-              const SizedBox(height: 12),
-              ElevatedButton(
-                onPressed: _cargarDatos,
-                child: const Text('Reintentar'),
-              ),
-            ],
-          ),
-        ),
-      );
+      return AppErrorView(message: _error!, onRetry: _cargarDatos);
     }
 
     final categorias = _categoriasFiltradas;

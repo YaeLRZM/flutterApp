@@ -6,6 +6,7 @@ import '../../../services/articulo_service.dart';
 import '../../../services/artesano_service.dart';
 import '../../../services/carrito_service.dart';
 import '../../../services/favoritos_service.dart';
+import '../../../widgets/app_ui.dart';
 import 'product_detail_view.dart';
 
 /// Vista de Favoritos. Los artículos guardados viven en
@@ -113,26 +114,11 @@ class _FavoritesViewState extends State<FavoritesView> {
 
   Widget _buildBody() {
     if (_loading) {
-      return const Center(child: CircularProgressIndicator());
+      return const AppLoadingView();
     }
 
     if (_error != null) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(_error!, textAlign: TextAlign.center),
-              const SizedBox(height: 12),
-              ElevatedButton(
-                onPressed: _cargarDatos,
-                child: const Text('Reintentar'),
-              ),
-            ],
-          ),
-        ),
-      );
+      return AppErrorView(message: _error!, onRetry: _cargarDatos);
     }
 
     return RefreshIndicator(
@@ -166,7 +152,7 @@ class _FavoritesViewState extends State<FavoritesView> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text(
-          'TU SELECCIÓN PERSONAL',
+          'FAVORITOS LOCALES',
           style: TextStyle(
             color: Color(0xFFD81B60),
             fontSize: 10,
@@ -183,30 +169,21 @@ class _FavoritesViewState extends State<FavoritesView> {
             color: Colors.black87,
           ),
         ),
+        const SizedBox(height: 6),
+        const Text(
+          'Se guardan solo en este dispositivo (sin sincronización en la nube).',
+          style: TextStyle(fontSize: 12, color: Colors.black45),
+        ),
       ],
     );
   }
 
   Widget _buildEmptyState() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 40),
-      child: Column(
-        children: [
-          Icon(Icons.favorite_border, size: 48, color: Colors.grey.shade400),
-          const SizedBox(height: 12),
-          const Text(
-            'Aún no has guardado ningún artículo.',
-            textAlign: TextAlign.center,
-            style: TextStyle(color: Colors.black54),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            'Toca el corazón ♡ en cualquier artículo para guardarlo aquí.',
-            textAlign: TextAlign.center,
-            style: TextStyle(color: Colors.grey.shade500, fontSize: 12),
-          ),
-        ],
-      ),
+    return const AppEmptyView(
+      icon: Icons.favorite_border,
+      title: 'Aún no has guardado ningún artículo.',
+      subtitle:
+          'Toca el corazón en cualquier artículo para guardarlo aquí (solo en este dispositivo).',
     );
   }
 
@@ -267,11 +244,17 @@ class _FavoritesViewState extends State<FavoritesView> {
           children: [
             Stack(
               children: [
-                Container(
+                SizedBox(
                   height: 220,
                   width: double.infinity,
-                  // TODO: API -> Image.network(articulo.imagenUrl)
-                  color: Colors.grey[300],
+                  child: articulo.imagenUrl.startsWith('http')
+                      ? Image.network(
+                          articulo.imagenUrl,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) =>
+                              ColoredBox(color: Colors.grey.shade300),
+                        )
+                      : ColoredBox(color: Colors.grey.shade300),
                 ),
                 Positioned(
                   top: 12,

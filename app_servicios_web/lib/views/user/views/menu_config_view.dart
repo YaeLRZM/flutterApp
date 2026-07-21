@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
-import '../../../services/api_service.dart';
 
+import '../../../services/api_service.dart';
+import '../../../widgets/app_ui.dart';
+
+/// Configuración / perfil del comprador: datos reales de GET /api/me en
+/// solo lectura. Edición de perfil y extras = próxima versión.
 class MenuConfigView extends StatefulWidget {
   const MenuConfigView({super.key});
 
@@ -9,9 +13,12 @@ class MenuConfigView extends StatefulWidget {
 }
 
 class _MenuConfigViewState extends State<MenuConfigView> {
+  static const Color bugambilia = Color(0xFFD81B60);
+
   bool _loading = true;
   String _displayName = 'Usuario Ixé';
   String _email = '';
+  String _rol = '';
   String? _profileHint;
 
   @override
@@ -35,15 +42,18 @@ class _MenuConfigViewState extends State<MenuConfigView> {
       final ap = (user['apellido_paterno'] ?? '').toString().trim();
       final am = (user['apellido_materno'] ?? '').toString().trim();
       final full = [nombre, ap, am].where((s) => s.isNotEmpty).join(' ');
+      final rol = (user['rol'] ?? '').toString().trim();
       setState(() {
         _displayName = full.isNotEmpty ? full : 'Usuario Ixé';
         _email = (user['email'] ?? '').toString();
+        _rol = rol;
         _loading = false;
       });
     } else {
       setState(() {
         _displayName = 'Usuario Ixé';
         _email = '';
+        _rol = '';
         _profileHint =
             (result['message'] ?? 'No se pudo cargar el perfil').toString();
         _loading = false;
@@ -52,14 +62,36 @@ class _MenuConfigViewState extends State<MenuConfigView> {
   }
 
   Future<void> _logout(BuildContext context) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Cerrar sesión'),
+        content: const Text('¿Deseas cerrar tu sesión?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancelar'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text(
+              'Cerrar sesión',
+              style: TextStyle(color: Colors.red),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (confirm != true || !context.mounted) return;
+
     await ApiService().logout();
     if (context.mounted) {
-      Navigator.pushNamedAndRemoveUntil(
-        context,
-        '/login',
-        (route) => false,
-      );
+      Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
     }
+  }
+
+  void _proximaVersion(String feature) {
+    AppUi.showProximamente(context, feature: feature);
   }
 
   @override
@@ -68,72 +100,73 @@ class _MenuConfigViewState extends State<MenuConfigView> {
       backgroundColor: const Color(0xFFF8F5F2),
       body: SafeArea(
         child: RefreshIndicator(
+          color: bugambilia,
           onRefresh: _loadProfile,
           child: SingleChildScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 32.0),
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
             child: Column(
               children: [
                 Center(
                   child: Column(
                     children: [
-                      Stack(
-                        alignment: Alignment.bottomRight,
-                        children: [
-                          Container(
-                            width: 100,
-                            height: 100,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              border: Border.all(color: Colors.white, width: 4),
-                              color: Colors.grey.shade300,
-                            ),
-                            child: _loading
-                                ? const Padding(
-                                    padding: EdgeInsets.all(28),
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                    ),
-                                  )
-                                : const Icon(
-                                    Icons.person,
-                                    size: 50,
-                                    color: Colors.white,
-                                  ),
-                          ),
-                          Container(
-                            padding: const EdgeInsets.all(6),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFD81B60),
-                              shape: BoxShape.circle,
-                              border: Border.all(color: Colors.white, width: 2),
-                            ),
-                            child: const Icon(
-                              Icons.edit,
-                              color: Colors.white,
-                              size: 16,
-                            ),
-                          ),
-                        ],
+                      CircleAvatar(
+                        radius: 48,
+                        backgroundColor: Colors.grey.shade300,
+                        child: _loading
+                            ? const Padding(
+                                padding: EdgeInsets.all(20),
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: bugambilia,
+                                ),
+                              )
+                            : Text(
+                                _displayName.isNotEmpty
+                                    ? _displayName[0].toUpperCase()
+                                    : 'U',
+                                style: const TextStyle(
+                                  fontSize: 36,
+                                  fontWeight: FontWeight.w800,
+                                  color: bugambilia,
+                                ),
+                              ),
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 14),
                       Text(
                         _displayName,
                         textAlign: TextAlign.center,
                         style: const TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
-                          color: Colors.black87,
                         ),
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        _email.isEmpty ? 'Sesión local' : _email,
-                        style: const TextStyle(
-                          fontSize: 14,
-                          color: Colors.black54,
-                        ),
+                        _email.isEmpty ? 'Sin email cargado' : _email,
+                        style: const TextStyle(fontSize: 14, color: Colors.black54),
                       ),
+                      if (_rol.isNotEmpty) ...[
+                        const SizedBox(height: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: bugambilia.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            'Rol: $_rol',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: bugambilia,
+                            ),
+                          ),
+                        ),
+                      ],
                       if (_profileHint != null) ...[
                         const SizedBox(height: 8),
                         Text(
@@ -145,112 +178,89 @@ class _MenuConfigViewState extends State<MenuConfigView> {
                           ),
                         ),
                       ],
+                      const SizedBox(height: 8),
+                      const Text(
+                        'Perfil en solo lectura · datos de /api/me',
+                        style: TextStyle(fontSize: 11, color: Colors.black45),
+                      ),
                     ],
                   ),
                 ),
-                const SizedBox(height: 40),
-                _buildSectionTitle('CUENTA & PREFERENCIAS'),
-                const SizedBox(height: 12),
-                Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.02),
-                        blurRadius: 10,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    children: [
-                      _buildListItem(
-                        icon: Icons.person_outline,
-                        title: 'Perfil',
-                        subtitle: 'Información personal, fotos',
-                      ),
-                      _buildDivider(),
-                      _buildListItem(
-                        icon: Icons.notifications_none,
-                        title: 'Notificaciones',
-                        subtitle: 'Push, correo, promociones',
-                        hasNotificationDot: true,
-                      ),
-                      _buildDivider(),
-                      _buildListItem(
-                        icon: Icons.shield_outlined,
-                        title: 'Seguridad',
-                        subtitle: 'Contraseña, 2FA, dispositivos',
-                      ),
-                    ],
-                  ),
+                const SizedBox(height: 28),
+                _sectionTitle('DATOS DE CUENTA'),
+                const SizedBox(height: 10),
+                _card(
+                  children: [
+                    _infoRow('Nombre', _displayName),
+                    const Divider(height: 1),
+                    _infoRow(
+                      'Correo',
+                      _email.isEmpty ? 'No disponible' : _email,
+                    ),
+                    const Divider(height: 1),
+                    _infoRow(
+                      'Rol',
+                      _rol.isEmpty ? 'No disponible' : _rol,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 24),
+                _sectionTitle('PRÓXIMA VERSIÓN'),
+                const SizedBox(height: 10),
+                _card(
+                  children: [
+                    _tappableRow(
+                      icon: Icons.edit_outlined,
+                      title: 'Editar perfil',
+                      subtitle: 'Nombre, foto y datos de contacto',
+                      onTap: () => _proximaVersion('Editar perfil'),
+                    ),
+                    const Divider(height: 1),
+                    _tappableRow(
+                      icon: Icons.lock_outline,
+                      title: 'Seguridad',
+                      subtitle: 'Contraseña y dispositivos',
+                      onTap: () => _proximaVersion('Seguridad'),
+                    ),
+                    const Divider(height: 1),
+                    _tappableRow(
+                      icon: Icons.location_on_outlined,
+                      title: 'Direcciones',
+                      subtitle: 'Envíos aún no disponibles en la app',
+                      onTap: () => _proximaVersion('Direcciones'),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 32),
-                _buildSectionTitle('LEGAL & SOPORTE'),
-                const SizedBox(height: 12),
-                Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.02),
-                        blurRadius: 10,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    children: [
-                      _buildListItem(
-                        icon: Icons.privacy_tip_outlined,
-                        title: 'Privacidad',
-                        subtitle: 'Datos, términos de servicio',
-                      ),
-                      _buildDivider(),
-                      _buildListItem(
-                        icon: Icons.help_outline,
-                        title: 'Ayuda',
-                        subtitle: 'Centro de soporte, FAQ',
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 40),
                 SizedBox(
                   width: double.infinity,
-                  height: 54,
+                  height: 52,
                   child: OutlinedButton.icon(
                     onPressed: () => _logout(context),
-                    icon: const Icon(Icons.logout, color: Color(0xFFD81B60)),
+                    icon: const Icon(Icons.logout, color: bugambilia),
                     label: const Text(
-                      'Cerrar Sesión',
+                      'Cerrar sesión',
                       style: TextStyle(
-                        color: Color(0xFFD81B60),
+                        color: bugambilia,
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
                     style: OutlinedButton.styleFrom(
-                      side: const BorderSide(
-                        color: Color(0xFFD81B60),
-                        width: 1.5,
-                      ),
+                      side: const BorderSide(color: bugambilia, width: 1.5),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(30),
                       ),
                     ),
                   ),
                 ),
-                const SizedBox(height: 32),
+                const SizedBox(height: 20),
                 const Text(
-                  'IXÉ MODA V2.4.0 • HECHO EN OAXACA',
+                  'Ixé Moda · perfil de comprador',
                   style: TextStyle(
                     fontSize: 10,
                     color: Colors.black38,
                     fontWeight: FontWeight.bold,
-                    letterSpacing: 1.0,
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -262,83 +272,107 @@ class _MenuConfigViewState extends State<MenuConfigView> {
     );
   }
 
-  Widget _buildSectionTitle(String title) {
+  Widget _sectionTitle(String t) {
     return Align(
       alignment: Alignment.centerLeft,
       child: Text(
-        title,
+        t,
         style: const TextStyle(
-          fontSize: 13,
+          fontSize: 12,
           fontWeight: FontWeight.w700,
           color: Colors.black54,
-          letterSpacing: 1.2,
+          letterSpacing: 1.0,
         ),
       ),
     );
   }
 
-  Widget _buildListItem({
-    required IconData icon,
-    required String title,
-    required String subtitle,
-    bool hasNotificationDot = false,
-  }) {
+  Widget _card({required List<Widget> children}) {
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(children: children),
+    );
+  }
+
+  Widget _infoRow(String label, String value) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: const Color(0xFFD81B60).withOpacity(0.1),
-              shape: BoxShape.circle,
+          SizedBox(
+            width: 88,
+            child: Text(
+              label,
+              style: const TextStyle(fontSize: 13, color: Colors.black45),
             ),
-            child: Icon(icon, color: const Color(0xFFD81B60), size: 22),
           ),
-          const SizedBox(width: 16),
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black87,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  subtitle,
-                  style: const TextStyle(fontSize: 12, color: Colors.black54),
-                ),
-              ],
-            ),
-          ),
-          if (hasNotificationDot)
-            Container(
-              margin: const EdgeInsets.only(right: 8),
-              width: 8,
-              height: 8,
-              decoration: const BoxDecoration(
-                color: Color(0xFFD81B60),
-                shape: BoxShape.circle,
+            child: Text(
+              value,
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: Colors.black87,
               ),
             ),
-          const Icon(Icons.chevron_right, color: Colors.black26),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildDivider() {
-    return const Divider(
-      height: 1,
-      thickness: 1,
-      color: Color(0xFFF0F0F0),
-      indent: 64,
-      endIndent: 16,
+  Widget _tappableRow({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Row(
+          children: [
+            Icon(icon, color: bugambilia, size: 22),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  Text(
+                    subtitle,
+                    style: const TextStyle(fontSize: 12, color: Colors.black54),
+                  ),
+                ],
+              ),
+            ),
+            const Text(
+              'Próxima',
+              style: TextStyle(fontSize: 11, color: Colors.black38),
+            ),
+            const Icon(Icons.chevron_right, color: Colors.black26),
+          ],
+        ),
+      ),
     );
   }
 }

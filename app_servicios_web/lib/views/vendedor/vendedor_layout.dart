@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 // 1. Importamos tus menús y botones globales
+import '../../widgets/app_ui.dart';
 import '../../widgets/global_top_bar.dart';
 import '../../widgets/global_bottom_bar.dart';
 import '../../widgets/global_side_menu.dart';
@@ -45,44 +46,57 @@ class _VendedorLayoutState extends State<VendedorLayout> {
     return 0;
   }
 
-  // Cambia el título de la barra superior dependiendo de la vista activa
   String get _topBarTitle {
     switch (_activePage) {
       case 'home':
-        return 'Panel de Vendedor';
+        return 'Panel vendedor';
       case 'productos':
-        return 'Mis Productos';
+        return 'Mis productos';
       case 'ventas':
-        return 'Mis Ventas';
+        return 'Mis ventas';
       case 'mi_tienda':
-        return 'Mi Tienda';
+        return 'Mi tienda';
       case 'configuracion':
         return 'Configuración';
-      // case 'notificaciones': return 'Notificaciones';
       default:
-        return 'Panel de Vendedor';
+        return 'Panel vendedor';
     }
   }
 
-  // Decide qué widget pintar en el centro dinámicamente
+  void _go(String page) {
+    setState(() {
+      _activePage = page;
+      if (_isDrawerOpen) _isDrawerOpen = false;
+    });
+  }
+
+  void _onNotificationsTap() {
+    // Misma copy transversal de “próxima versión” (sin bandeja inventada).
+    AppUi.showProximamente(context, feature: 'Notificaciones');
+  }
+
   Widget _getContentView() {
     switch (_activePage) {
       case 'home':
-        return const HomeViewVendedor();
+        return HomeViewVendedor(
+          onIrAProductos: () => _go('productos'),
+          onIrAVentas: () => _go('ventas'),
+          onIrATienda: () => _go('mi_tienda'),
+        );
       case 'productos':
         return const ProductosView();
       case 'ventas':
         return const VentasView();
       case 'mi_tienda':
         return const TiendaView();
-
-      // Vistas del menú lateral
       case 'configuracion':
         return const MenuConfigView();
-      // case 'notificaciones': return NotificacionesView(); // Sin const si te marca error
-
       default:
-        return const HomeViewVendedor();
+        return HomeViewVendedor(
+          onIrAProductos: () => _go('productos'),
+          onIrAVentas: () => _go('ventas'),
+          onIrATienda: () => _go('mi_tienda'),
+        );
     }
   }
 
@@ -140,17 +154,17 @@ class _VendedorLayoutState extends State<VendedorLayout> {
                   : BorderRadius.zero,
               child: Scaffold(
                 backgroundColor: Colors.transparent,
-                // Usamos el título dinámico en el top bar
-                appBar: GlobalTopBar.seller(title: _topBarTitle),
+                appBar: GlobalTopBar.seller(
+                  title: _topBarTitle,
+                  onNotificationsTap: _onNotificationsTap,
+                ),
                 body: Stack(
                   children: [
                     GestureDetector(
-                      // Bloquea interacciones en el body si el menú está abierto
                       onTap: _isDrawerOpen ? _toggleDrawer : null,
                       child: AbsorbPointer(
                         absorbing: _isDrawerOpen,
-                        child:
-                            _getContentView(), // AQUÍ CARGAMOS LA VISTA DINÁMICAMENTE
+                        child: _getContentView(),
                       ),
                     ),
                     const GlobalChatbotButton(),
@@ -160,18 +174,13 @@ class _VendedorLayoutState extends State<VendedorLayout> {
                     FloatingActionButtonLocation.centerDocked,
                 floatingActionButton: FloatingActionButton(
                   heroTag: 'vendor_fab',
-                  onPressed: () {
-                    // Navegar a la pestaña de Ventas (internamente)
-                    setState(() {
-                      _activePage = 'ventas';
-                      if (_isDrawerOpen) _isDrawerOpen = false;
-                    });
-                  },
+                  tooltip: 'Mis ventas',
+                  onPressed: () => _go('ventas'),
                   backgroundColor: const Color(0xFFD81B60),
                   shape: const CircleBorder(),
                   elevation: 4,
                   child: const Icon(
-                    Icons.attach_money,
+                    Icons.receipt_long_outlined,
                     color: Colors.white,
                     size: 28,
                   ),
@@ -179,14 +188,12 @@ class _VendedorLayoutState extends State<VendedorLayout> {
                 bottomNavigationBar: GlobalBottomBar(
                   currentIndex: _bottomNavIndex,
                   isDrawerOpen: _isDrawerOpen,
-                  isSeller: true, // modo vendedor
+                  isSeller: true,
                   onTabSelected: (index) {
-                    setState(() {
-                      if (index == 0) _activePage = 'home';
-                      if (index == 1) _activePage = 'productos';
-                      if (index == 2) _activePage = 'ventas';
-                      if (index == 3) _activePage = 'mi_tienda';
-                    });
+                    if (index == 0) _go('home');
+                    if (index == 1) _go('productos');
+                    if (index == 2) _go('ventas');
+                    if (index == 3) _go('mi_tienda');
                   },
                   onMenuPressed: _toggleDrawer,
                 ),

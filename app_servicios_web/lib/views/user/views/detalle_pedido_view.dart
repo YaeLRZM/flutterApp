@@ -2,10 +2,11 @@ import 'package:flutter/material.dart';
 
 import '../../../models/venta.dart';
 import '../../../services/venta_service.dart';
+import '../../../widgets/app_ui.dart';
 
-/// Detalle de una compra del usuario.
+/// Detalle de una **compra** del usuario (modelo Venta).
 /// Fuente real: GET /api/ventas/{id} (ownership por user_id).
-/// Sin tracking, guías, repartidor ni folios inventados.
+/// Nombre de archivo histórico `detalle_pedido_view`; semántica UI = compra.
 class DetallePedidoView extends StatefulWidget {
   final int ventaId;
 
@@ -86,34 +87,11 @@ class _DetallePedidoViewState extends State<DetallePedidoView> {
 
   Widget _buildBody() {
     if (_loading) {
-      return const Center(child: CircularProgressIndicator());
+      return const AppLoadingView();
     }
 
     if (_error != null) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                _error!,
-                textAlign: TextAlign.center,
-                style: const TextStyle(color: secondaryText),
-              ),
-              const SizedBox(height: 16),
-              ElevatedButton(
-                onPressed: _cargar,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: bugambilia,
-                  foregroundColor: Colors.white,
-                ),
-                child: const Text('Reintentar'),
-              ),
-            ],
-          ),
-        ),
-      );
+      return AppErrorView(message: _error!, onRetry: _cargar);
     }
 
     final v = _venta;

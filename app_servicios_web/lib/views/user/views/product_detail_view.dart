@@ -11,23 +11,13 @@ import '../../../services/artesano_service.dart';
 import '../../../services/carrito_service.dart';
 import '../../../services/favoritos_service.dart';
 import '../../../services/resena_service.dart';
+import '../../../widgets/app_ui.dart';
 import '../../../widgets/product_grid_item.dart';
 import '../../../widgets/product_image_gallery.dart';
 import 'checkout_view.dart';
 import 'public_catalog_entity_view.dart';
 
-/// Vista de detalle de un artículo. Se navega a ella pasando el
-/// `articuloId` (ej. al tocar una tarjeta en el Home):
-///
-/// ```dart
-/// Navigator.push(context, MaterialPageRoute(
-///   builder: (_) => ProductDetailView(articuloId: articulo.id),
-/// ));
-/// ```
-///
-/// Todos los datos (artículo, artesano, imágenes, reseñas, "más obras")
-/// vienen de `services/`, que hoy regresan datos mock y mañana pegarán a
-/// Laravel sin tocar esta vista.
+/// Detalle de artículo (API real: artículo, imágenes, reseñas).
 class ProductDetailView extends StatefulWidget {
   final int articuloId;
 
@@ -208,9 +198,24 @@ class _ProductDetailViewState extends State<ProductDetailView> {
     }
   }
 
+  bool get _puedeComprar {
+    final a = _articulo;
+    if (a == null) return false;
+    return a.disponible && a.stock > 0;
+  }
+
   void _comprarAhora() {
     final articulo = _articulo;
     if (articulo == null) return;
+    if (!_puedeComprar) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Este producto no está disponible o sin stock.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -222,9 +227,24 @@ class _ProductDetailViewState extends State<ProductDetailView> {
   void _agregarAlCarrito() {
     final articulo = _articulo;
     if (articulo == null) return;
+    if (!_puedeComprar) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No se puede agregar: sin stock o no disponible.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
     CarritoService.instance.agregar(articulo.id);
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('"${articulo.nombre}" agregado al carrito')),
+      SnackBar(
+        content: Text('“${articulo.nombre}” agregado al carrito (local)'),
+        action: SnackBarAction(
+          label: 'OK',
+          onPressed: () {},
+        ),
+      ),
     );
   }
 
@@ -251,28 +271,13 @@ class _ProductDetailViewState extends State<ProductDetailView> {
 
   Widget _buildBody() {
     if (_loading) {
-      return const Center(child: CircularProgressIndicator());
+      return const AppLoadingView();
     }
 
     if (_error != null || _articulo == null) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                _error ?? 'Artículo no disponible',
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 12),
-              ElevatedButton(
-                onPressed: _cargarDatos,
-                child: const Text('Reintentar'),
-              ),
-            ],
-          ),
-        ),
+      return AppErrorView(
+        message: _error ?? 'Artículo no disponible',
+        onRetry: _cargarDatos,
       );
     }
 
@@ -761,81 +766,108 @@ class _ProductDetailViewState extends State<ProductDetailView> {
 
   // --- 5. Botones de acción ---
   Widget _buildActionButtons() {
-    return Row(
+    final enabled = _puedeComprar;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Expanded(
-          flex: 5,
-          child: ElevatedButton(
-            onPressed: _comprarAhora,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFD81B60),
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(24),
-              ),
-              elevation: 0,
-            ),
-            child: const Text(
-              'Comprar ahora',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-              ),
+        if (!enabled)
+          const Padding(
+            padding: EdgeInsets.only(bottom: 10),
+            child: Text(
+              'Producto no disponible o sin stock. No se puede comprar por ahora.',
+              style: TextStyle(fontSize: 12, color: Colors.red),
             ),
           ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          flex: 4,
-          child: OutlinedButton.icon(
-            onPressed: _agregarAlCarrito,
-            style: OutlinedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              side: const BorderSide(color: Color(0xFFD81B60), width: 1.5),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(24),
+        Row(
+          children: [
+            Expanded(
+              flex: 5,
+              child: ElevatedButton(
+                onPressed: enabled ? _comprarAhora : null,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFD81B60),
+                  disabledBackgroundColor: Colors.grey.shade400,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(24),
+                  ),
+                  elevation: 0,
+                ),
+                child: const Text(
+                  'Comprar ahora',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
               ),
             ),
-            icon: const Icon(
-              Icons.shopping_bag_outlined,
-              color: Color(0xFFD81B60),
-              size: 20,
-            ),
-            label: const Text(
-              'Agregar',
-              style: TextStyle(
-                color: Color(0xFFD81B60),
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
+            const SizedBox(width: 12),
+            Expanded(
+              flex: 4,
+              child: OutlinedButton.icon(
+                onPressed: enabled ? _agregarAlCarrito : null,
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  side: BorderSide(
+                    color: enabled
+                        ? const Color(0xFFD81B60)
+                        : Colors.grey.shade400,
+                    width: 1.5,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(24),
+                  ),
+                ),
+                icon: Icon(
+                  Icons.shopping_bag_outlined,
+                  color: enabled ? const Color(0xFFD81B60) : Colors.grey,
+                  size: 20,
+                ),
+                label: Text(
+                  'Agregar',
+                  style: TextStyle(
+                    color: enabled ? const Color(0xFFD81B60) : Colors.grey,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
               ),
             ),
-          ),
+          ],
         ),
       ],
     );
   }
 
-  // --- 6. Badges de envío y garantía ---
-  // TODO: API -> hoy son estáticos; cuando exista una tabla de políticas
-  // por tienda, se pueden condicionar (ej. ocultar "Envío Gratis" si la
-  // tienda no lo ofrece).
+  // --- 6. Info honesta (sin promesas de envío inventadas) ---
   Widget _buildFeatureBadges() {
+    final a = _articulo;
+    final stockLabel = a == null
+        ? '—'
+        : (a.stock <= 0
+            ? 'Sin stock'
+            : 'Stock: ${a.stock}');
+    final dispLabel = a == null
+        ? '—'
+        : (a.disponible ? 'Publicado en catálogo' : 'No disponible');
+
     return Row(
       children: [
         Expanded(
           child: _featureBadge(
-            icon: Icons.local_shipping_outlined,
-            titulo: 'Envío Gratis',
-            subtitulo: 'A todo México y USA',
+            icon: Icons.inventory_2_outlined,
+            titulo: stockLabel,
+            subtitulo: 'Dato del artículo',
           ),
         ),
         const SizedBox(width: 12),
         Expanded(
           child: _featureBadge(
-            icon: Icons.workspace_premium_outlined,
-            titulo: 'Garantía Ixé',
-            subtitulo: 'Certificado de Autenticidad',
+            icon: Icons.visibility_outlined,
+            titulo: dispLabel,
+            subtitulo: 'Sin envíos en app aún',
           ),
         ),
       ],

@@ -8,6 +8,7 @@ import '../../../services/articulo_service.dart';
 import '../../../services/categoria_service.dart';
 import '../../../services/cupon_service.dart';
 import '../../../services/favoritos_service.dart';
+import '../../../widgets/app_ui.dart';
 import '../../../widgets/category_filter_bar.dart';
 import '../../../widgets/flash_sales_box.dart';
 import '../../../widgets/product_card_large.dart';
@@ -152,26 +153,11 @@ class _HomeViewState extends State<HomeView> {
   @override
   Widget build(BuildContext context) {
     if (_loading) {
-      return const Center(child: CircularProgressIndicator());
+      return const AppLoadingView();
     }
 
     if (_error != null) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(_error!, textAlign: TextAlign.center),
-              const SizedBox(height: 12),
-              ElevatedButton(
-                onPressed: _cargarDatos,
-                child: const Text('Reintentar'),
-              ),
-            ],
-          ),
-        ),
-      );
+      return AppErrorView(message: _error!, onRetry: _cargarDatos);
     }
 
     final articulos = _articulosFiltrados;
@@ -212,13 +198,48 @@ class _HomeViewState extends State<HomeView> {
             ],
             if (articulos.isEmpty)
               Padding(
-                padding: const EdgeInsets.symmetric(vertical: 40),
-                child: Text(
-                  hasQuery
-                      ? 'No encontramos piezas con ese texto.\nPrueba “huipil”, “rebozo” o una comunidad.'
-                      : 'No hay piezas para mostrar.',
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(color: Colors.black54),
+                padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 8),
+                child: Column(
+                  children: [
+                    Icon(
+                      hasQuery
+                          ? Icons.search_off
+                          : Icons.inventory_2_outlined,
+                      size: 48,
+                      color: Colors.black26,
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      hasQuery
+                          ? 'No hay resultados para “${widget.searchQuery.trim()}”.'
+                          : 'No hay piezas para mostrar en el catálogo.',
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        color: Colors.black54,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      hasQuery
+                          ? 'Prueba con otro término o limpia la búsqueda en la barra superior.'
+                          : 'Desliza hacia abajo para reintentar.',
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(color: Colors.black45, fontSize: 13),
+                    ),
+                    if (hasQuery) ...[
+                      const SizedBox(height: 16),
+                      OutlinedButton.icon(
+                        onPressed: _irACategorias,
+                        icon: const Icon(Icons.grid_view_rounded, size: 18),
+                        label: const Text('Ver categorías'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: const Color(0xFFD81B60),
+                          side: const BorderSide(color: Color(0xFFD81B60)),
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
               )
             else

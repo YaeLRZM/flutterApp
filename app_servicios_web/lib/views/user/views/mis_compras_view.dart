@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../models/venta.dart';
 import '../../../services/venta_service.dart';
+import '../../../widgets/app_ui.dart';
 import 'detalle_pedido_view.dart';
 
 /// Historial de compras del usuario autenticado.
@@ -85,34 +86,11 @@ class _MisComprasViewState extends State<MisComprasView> {
 
   Widget _buildBody() {
     if (_loading) {
-      return const Center(child: CircularProgressIndicator());
+      return const AppLoadingView();
     }
 
     if (_error != null) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                _error!,
-                textAlign: TextAlign.center,
-                style: const TextStyle(color: secondaryText),
-              ),
-              const SizedBox(height: 16),
-              ElevatedButton(
-                onPressed: _cargar,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: bugambilia,
-                  foregroundColor: Colors.white,
-                ),
-                child: const Text('Reintentar'),
-              ),
-            ],
-          ),
-        ),
-      );
+      return AppErrorView(message: _error!, onRetry: _cargar);
     }
 
     return RefreshIndicator(
@@ -133,7 +111,7 @@ class _MisComprasViewState extends State<MisComprasView> {
           ),
           const SizedBox(height: 8),
           const Text(
-            'Historial de compras (registros de la tabla ventas de tu cuenta).',
+            'Historial de tus compras reales (API). Toca una para ver el detalle.',
             style: TextStyle(fontSize: 14, color: Colors.black54),
           ),
           if (_count > 0) ...[
@@ -149,34 +127,10 @@ class _MisComprasViewState extends State<MisComprasView> {
           ],
           const SizedBox(height: 24),
           if (_compras.isEmpty)
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(28),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: const Column(
-                children: [
-                  Icon(Icons.shopping_bag_outlined, size: 48, color: Colors.black26),
-                  SizedBox(height: 12),
-                  Text(
-                    'Aún no tienes compras',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.black87,
-                    ),
-                  ),
-                  SizedBox(height: 6),
-                  Text(
-                    'Cuando completes una compra real, aparecerá aquí.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 13, color: secondaryText),
-                  ),
-                ],
-              ),
+            const AppEmptyView(
+              icon: Icons.shopping_bag_outlined,
+              title: 'Aún no tienes compras',
+              subtitle: 'Cuando completes una compra real, aparecerá aquí.',
             )
           else
             ..._compras.map(_buildCard),

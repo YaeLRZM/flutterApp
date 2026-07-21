@@ -4,6 +4,7 @@ import '../../../config/data_config.dart';
 import '../../../models/articulo.dart';
 import '../../../services/articulo_service.dart';
 import '../../../services/carrito_service.dart';
+import '../../../widgets/app_ui.dart';
 import 'checkout_view.dart';
 import 'product_detail_view.dart';
 
@@ -81,7 +82,33 @@ class _CartViewState extends State<CartView> {
     );
   }
 
+  bool get _multiTienda {
+    final ids = _articulos.map((a) => a.tiendaId).where((id) => id > 0).toSet();
+    return ids.length > 1;
+  }
+
+  void _vaciarCarrito() {
+    CarritoService.instance.vaciar();
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Carrito vaciado (local)')),
+    );
+  }
+
   void _continuarCompra() {
+    if (_articulos.isEmpty) return;
+    if (_multiTienda) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'El carrito mezcla tiendas. En esta versión solo puedes '
+            'comprar de una tienda a la vez. Quita productos de otras tiendas.',
+          ),
+          backgroundColor: Colors.red,
+          duration: Duration(seconds: 4),
+        ),
+      );
+      return;
+    }
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -126,26 +153,11 @@ class _CartViewState extends State<CartView> {
 
   Widget _buildBody() {
     if (_loading) {
-      return const Center(child: CircularProgressIndicator());
+      return const AppLoadingView();
     }
 
     if (_error != null) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(_error!, textAlign: TextAlign.center),
-              const SizedBox(height: 12),
-              ElevatedButton(
-                onPressed: _cargarDatos,
-                child: const Text('Reintentar'),
-              ),
-            ],
-          ),
-        ),
-      );
+      return AppErrorView(message: _error!, onRetry: _cargarDatos);
     }
 
     if (_articulos.isEmpty) {
@@ -158,6 +170,31 @@ class _CartViewState extends State<CartView> {
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 24.0),
         children: [
+          if (_multiTienda)
+            Container(
+              width: double.infinity,
+              margin: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFEBEE),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFEF9A9A)),
+              ),
+              child: const Text(
+                'Hay productos de más de una tienda. La compra v1 solo '
+                'permite una tienda por compra: ajusta el carrito antes de continuar.',
+                style: TextStyle(fontSize: 12, color: Color(0xFFB71C1C), height: 1.35),
+              ),
+            ),
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton.icon(
+              onPressed: _vaciarCarrito,
+              icon: const Icon(Icons.delete_outline, size: 18),
+              label: const Text('Vaciar carrito'),
+              style: TextButton.styleFrom(foregroundColor: Colors.black54),
+            ),
+          ),
           for (final articulo in _articulos) ...[
             _buildCartItem(articulo),
             const SizedBox(height: 16),
@@ -173,44 +210,28 @@ class _CartViewState extends State<CartView> {
   }
 
   Widget _buildEmptyState() {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.shopping_bag_outlined,
-              size: 48,
-              color: Colors.grey.shade400,
-            ),
-            const SizedBox(height: 12),
-            const Text(
-              'Tu carrito está vacío.',
-              style: TextStyle(color: Colors.black54),
-            ),
-            const SizedBox(height: 16),
-            OutlinedButton(
-              onPressed: widget.onIrAInicio,
-              style: OutlinedButton.styleFrom(
-                side: const BorderSide(color: Color(0xFFD81B60)),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(24),
-                ),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 12,
-                ),
-              ),
-              child: const Text(
-                'Ir a explorar',
-                style: TextStyle(
-                  color: Color(0xFFD81B60),
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-          ],
+    return AppEmptyView(
+      icon: Icons.shopping_bag_outlined,
+      title: 'Tu carrito está vacío.',
+      subtitle: 'Explora el catálogo y agrega piezas.',
+      action: OutlinedButton(
+        onPressed: widget.onIrAInicio,
+        style: OutlinedButton.styleFrom(
+          side: const BorderSide(color: Color(0xFFD81B60)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+          ),
+          padding: const EdgeInsets.symmetric(
+            horizontal: 24,
+            vertical: 12,
+          ),
+        ),
+        child: const Text(
+          'Ir a explorar',
+          style: TextStyle(
+            color: Color(0xFFD81B60),
+            fontWeight: FontWeight.bold,
+          ),
         ),
       ),
     );
@@ -239,11 +260,17 @@ class _CartViewState extends State<CartView> {
         children: [
           GestureDetector(
             onTap: () => _abrirArticulo(articulo.id),
-            child: Container(
+            child: SizedBox(
               height: 140,
               width: double.infinity,
-              // TODO: API -> Image.network(articulo.imagenUrl)
-              color: Colors.grey[300],
+              child: articulo.imagenUrl.startsWith('http')
+                  ? Image.network(
+                      articulo.imagenUrl,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) =>
+                          ColoredBox(color: Colors.grey.shade300),
+                    )
+                  : ColoredBox(color: Colors.grey.shade300),
             ),
           ),
           Padding(
@@ -446,28 +473,33 @@ class _CartViewState extends State<CartView> {
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
-              onPressed: _continuarCompra,
+              onPressed: _multiTienda ? null : _continuarCompra,
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFFD81B60),
+                disabledBackgroundColor: Colors.grey.shade400,
                 padding: const EdgeInsets.symmetric(vertical: 16),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(24),
                 ),
                 elevation: 0,
               ),
-              child: const Row(
+              child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Text(
-                    'Continuar compra',
-                    style: TextStyle(
+                    _multiTienda
+                        ? 'Ajusta tiendas para continuar'
+                        : 'Continuar a checkout',
+                    style: const TextStyle(
                       color: Colors.white,
                       fontSize: 14,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
-                  SizedBox(width: 8),
-                  Icon(Icons.arrow_forward, color: Colors.white, size: 18),
+                  if (!_multiTienda) ...[
+                    const SizedBox(width: 8),
+                    const Icon(Icons.arrow_forward, color: Colors.white, size: 18),
+                  ],
                 ],
               ),
             ),

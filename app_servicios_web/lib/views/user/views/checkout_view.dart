@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../models/articulo.dart';
 import '../../../services/articulo_service.dart';
+import '../../../widgets/app_ui.dart';
 import 'payment_processing_view.dart';
 
 /// Checkout: resumen del carrito local + flujo de **pago simulado**.
@@ -123,26 +124,11 @@ class _CheckoutViewState extends State<CheckoutView> {
 
   Widget _buildBody() {
     if (_loading) {
-      return const Center(child: CircularProgressIndicator());
+      return const AppLoadingView();
     }
 
     if (_error != null) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(_error!, textAlign: TextAlign.center),
-              const SizedBox(height: 12),
-              ElevatedButton(
-                onPressed: _cargarDatos,
-                child: const Text('Reintentar'),
-              ),
-            ],
-          ),
-        ),
-      );
+      return AppErrorView(message: _error!, onRetry: _cargarDatos);
     }
 
     return ListView(

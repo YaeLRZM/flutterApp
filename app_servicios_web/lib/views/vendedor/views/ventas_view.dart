@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../models/venta.dart';
 import '../../../services/venta_service.dart';
+import '../../../widgets/app_ui.dart';
 
 /// Mis ventas: UI alineada al modelo real `Venta`
 /// (id, total, estado, created_at, user_id, detalle_ventas_count).
@@ -90,36 +91,11 @@ class _VentasViewState extends State<VentasView> {
 
   Widget _buildBody() {
     if (_loading) {
-      return const Center(child: CircularProgressIndicator());
+      return const AppLoadingView();
     }
 
     if (_error != null) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.receipt_long_outlined, size: 48, color: Colors.black38),
-              const SizedBox(height: 12),
-              Text(
-                _error!,
-                textAlign: TextAlign.center,
-                style: const TextStyle(color: secondaryText),
-              ),
-              const SizedBox(height: 16),
-              ElevatedButton(
-                onPressed: _cargar,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: bugambilia,
-                  foregroundColor: Colors.white,
-                ),
-                child: const Text('Reintentar'),
-              ),
-            ],
-          ),
-        ),
-      );
+      return AppErrorView(message: _error!, onRetry: _cargar);
     }
 
     return RefreshIndicator(
@@ -138,7 +114,7 @@ class _VentasViewState extends State<VentasView> {
           ),
           const SizedBox(height: 6),
           const Text(
-            'Registros de la tabla ventas de tu tienda.',
+            'Ventas de tu tienda (API real). Toca una para ver el detalle.',
             style: TextStyle(fontSize: 13, color: secondaryText),
           ),
           const SizedBox(height: 20),
@@ -166,24 +142,11 @@ class _VentasViewState extends State<VentasView> {
           const SizedBox(height: 24),
 
           if (_ventas.isEmpty)
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: const Column(
-                children: [
-                  Icon(Icons.inbox_outlined, size: 40, color: Colors.black26),
-                  SizedBox(height: 10),
-                  Text(
-                    'No hay ventas para tu tienda.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: secondaryText, fontSize: 14),
-                  ),
-                ],
-              ),
+            const AppEmptyView(
+              icon: Icons.inbox_outlined,
+              title: 'Aún no hay ventas en tu tienda.',
+              subtitle:
+                  'Cuando un comprador complete una compra de tus productos, aparecerá aquí.',
             )
           else
             ..._ventas.map(_buildVentaCard),
@@ -464,28 +427,14 @@ class _VentaDetalleSheetState extends State<_VentaDetalleSheet> {
               if (_loading)
                 const Padding(
                   padding: EdgeInsets.symmetric(vertical: 40),
-                  child: Center(child: CircularProgressIndicator()),
+                  child: AppLoadingView(),
                 )
               else if (_error != null)
-                Column(
-                  children: [
-                    Text(
-                      _error!,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(color: Colors.red, fontSize: 14),
-                    ),
-                    const SizedBox(height: 12),
-                    OutlinedButton(
-                      onPressed: _cargar,
-                      child: const Text('Reintentar'),
-                    ),
-                  ],
-                )
+                AppErrorView(message: _error!, onRetry: _cargar)
               else if (_venta == null)
-                const Text(
-                  'No disponible',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: secondaryText),
+                const AppEmptyView(
+                  title: 'No disponible',
+                  subtitle: 'No se pudo mostrar el detalle de esta venta.',
                 )
               else
                 _buildDetalle(_venta!),

@@ -36,20 +36,20 @@ class GlobalBottomBar extends StatelessWidget {
 
   List<Widget> _buildNavItems() {
     if (isSeller) {
-      // Modo vendedor: 5 ítems
+      // FAB central = Mis ventas (notch). Índices: 0 home, 1 productos, 3 tienda.
       return [
         _buildNavItem(Icons.home_outlined, 'Inicio', 0),
-        _buildNavItem(Icons.shopping_bag_outlined, 'Productos', 1),
+        _buildNavItem(Icons.inventory_2_outlined, 'Productos', 1),
         const SizedBox(width: 48),
-        _buildNavItem(Icons.store_outlined, 'Mi tienda', 3),
+        _buildNavItem(Icons.storefront_outlined, 'Mi tienda', 3),
         _buildMenuButton(),
       ];
     } else {
-      // Modo cliente: 4 ítems + espacio central para el FAB (que se aloja en el notch)
+      // FAB central = carrito. Índices: 0 home, 1 colecciones, 2 favoritos.
       return [
         _buildNavItem(Icons.home_outlined, 'Inicio', 0),
         _buildNavItem(Icons.grid_view_rounded, 'Colecciones', 1),
-        const SizedBox(width: 48), // espacio para el FAB
+        const SizedBox(width: 48),
         _buildNavItem(Icons.favorite_border, 'Favoritos', 2),
         _buildMenuButton(),
       ];

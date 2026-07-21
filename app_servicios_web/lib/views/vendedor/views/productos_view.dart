@@ -5,6 +5,7 @@ import '../../../models/categoria.dart';
 import '../../../services/api_service.dart';
 import '../../../services/articulo_service.dart';
 import '../../../services/categoria_service.dart';
+import '../../../widgets/app_ui.dart';
 import '../../user/views/product_detail_view.dart';
 
 /// Mis productos del vendedor: listado real + detalle + toggle disponible + edición mínima.
@@ -255,23 +256,11 @@ class _ProductosViewState extends State<ProductosView> {
   @override
   Widget build(BuildContext context) {
     if (_loading) {
-      return const Center(child: CircularProgressIndicator());
+      return const AppLoadingView();
     }
 
     if (_error != null) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(_error!, textAlign: TextAlign.center),
-              const SizedBox(height: 12),
-              ElevatedButton(onPressed: _cargar, child: const Text('Reintentar')),
-            ],
-          ),
-        ),
-      );
+      return AppErrorView(message: _error!, onRetry: _cargar);
     }
 
     final items = _filtrados;
@@ -311,9 +300,20 @@ class _ProductosViewState extends State<ProductosView> {
             TextField(
               controller: _searchCtrl,
               onChanged: (v) => setState(() => _query = v),
+              textInputAction: TextInputAction.search,
               decoration: InputDecoration(
                 hintText: 'Filtrar por nombre o categoría…',
                 prefixIcon: const Icon(Icons.search, color: secondaryText),
+                suffixIcon: _query.trim().isEmpty
+                    ? null
+                    : IconButton(
+                        tooltip: 'Limpiar filtro',
+                        onPressed: () {
+                          _searchCtrl.clear();
+                          setState(() => _query = '');
+                        },
+                        icon: const Icon(Icons.close, size: 20),
+                      ),
                 filled: true,
                 fillColor: Colors.white,
                 border: OutlineInputBorder(
@@ -378,21 +378,27 @@ class _ProductosViewState extends State<ProductosView> {
             ),
             const SizedBox(height: 20),
             if (items.isEmpty)
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 48),
-                child: Center(
-                  child: Text(
-                    _productos.isEmpty
-                        ? 'Tu tienda aún no tiene productos.'
-                        : _filtro == _FiltroPublicacion.ocultos
-                            ? 'No hay productos ocultos.'
-                            : _filtro == _FiltroPublicacion.publicados
-                                ? 'No hay productos publicados.'
-                                : 'Ningún producto coincide con el filtro.',
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(color: secondaryText),
-                  ),
-                ),
+              AppEmptyView(
+                icon: _productos.isEmpty
+                    ? Icons.inventory_2_outlined
+                    : Icons.filter_list_off,
+                title: _productos.isEmpty
+                    ? 'Tu tienda aún no tiene productos.'
+                    : _filtro == _FiltroPublicacion.ocultos
+                        ? 'No hay productos ocultos.'
+                        : _filtro == _FiltroPublicacion.publicados
+                            ? 'No hay productos publicados.'
+                            : 'Ningún producto coincide con el filtro.',
+                action: _productos.isEmpty
+                    ? TextButton.icon(
+                        onPressed: _abrirCreacion,
+                        icon: const Icon(Icons.add),
+                        label: const Text('Crear primer producto'),
+                        style: TextButton.styleFrom(
+                          foregroundColor: primaryColor,
+                        ),
+                      )
+                    : null,
               )
             else
               ...items.map(

@@ -1,3 +1,6 @@
+// LEGACY / FUERA DE FLUJO — no importar desde rutas activas.
+// Conservado solo como referencia histórica. Usar MenuConfigView / DetallePedidoView.
+// @deprecated
 import 'package:flutter/material.dart';
 
 class AjustesPerfilView extends StatelessWidget {

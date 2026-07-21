@@ -1,10 +1,13 @@
+// LEGACY / FUERA DE FLUJO — no importar desde rutas activas.
+// Conservado solo como referencia histórica. Usar MenuConfigView / DetallePedidoView.
+// @deprecated
 import 'package:flutter/material.dart';
 import 'package:confetti/confetti.dart';
 
-import '../../../config/data_config.dart';
-import '../../../models/articulo.dart';
-import '../../../services/articulo_service.dart';
-import '../user_layout.dart';
+import '../../../../config/data_config.dart';
+import '../../../../models/articulo.dart';
+import '../../../../services/articulo_service.dart';
+import '../../user_layout.dart';
 
 /// Vista final de "compra exitosa". Recibe los artículos comprados
 /// (`articuloId -> cantidad`) desde `PaymentSuccessView` y carga los

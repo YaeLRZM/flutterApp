@@ -12,15 +12,14 @@ import 'views/collections_view.dart';
 import 'views/favorites_view.dart';
 import 'views/cart_view.dart';
 import 'views/mis_compras_view.dart';
+import 'views/menu_config_view.dart';
 import 'views/notificaciones_view.dart';
 import 'views/mis_opiniones_view.dart';
 import 'views/formas_de_pago_view.dart';
-import 'views/menu_config_view.dart'; // <-- Agregamos la vista de configuración
 
 class UserLayout extends StatefulWidget {
-  /// Página con la que arranca el layout (ej. 'mis_compras' para
-  /// llegar directo desde `CompraExitosaView` → "Ver pedidos"). Por
-  /// default arranca en 'home'.
+  /// Página con la que arranca el layout (ej. 'mis_compras').
+  /// Por default arranca en 'home'.
   final String initialPage;
 
   const UserLayout({super.key, this.initialPage = 'home'});
@@ -78,17 +77,17 @@ class _UserLayoutState extends State<UserLayout> {
       case 'cart':
         return 'Carrito de Compras';
       case 'mis_compras':
-        return 'Mis Compras';
+        return 'Mis compras';
       case 'notificaciones':
         return 'Notificaciones';
       case 'mis_opiniones':
-        return 'Mis Opiniones';
+        return 'Mis opiniones';
       case 'forma_pago':
-        return 'Formas de Pago';
+        return 'Formas de pago';
       case 'configuracion':
-        return 'Configuración'; // <-- Título dinámico agregado
+        return 'Configuración';
       case 'favoritos':
-        return 'Tus Favoritos';
+        return 'Favoritos (local)';
       default:
         return 'Ixé Moda';
     }
@@ -99,6 +98,14 @@ class _UserLayoutState extends State<UserLayout> {
       _catalogSearchQuery = query;
       // La búsqueda aplica al feed de inicio.
       _activePage = 'home';
+      if (_isDrawerOpen) _isDrawerOpen = false;
+    });
+  }
+
+  void _onNotificationsTap() {
+    // Misma semántica que el menú: pantalla honesta, no bandeja falsa.
+    setState(() {
+      _activePage = 'notificaciones';
       if (_isDrawerOpen) _isDrawerOpen = false;
     });
   }
@@ -122,13 +129,16 @@ class _UserLayoutState extends State<UserLayout> {
       case 'mis_compras':
         return const MisComprasView();
       case 'notificaciones':
-        return NotificacionesView(); // Sin 'const' por tu configuración
+        return NotificacionesView(
+          onIrAInicio: _irAInicio,
+          onIrAMisCompras: () => setState(() => _activePage = 'mis_compras'),
+        );
       case 'mis_opiniones':
-        return const MisOpinionesView();
+        return MisOpinionesView(onIrAInicio: _irAInicio);
       case 'forma_pago':
-        return const FormasDePagoView();
+        return FormasDePagoView(onIrAInicio: _irAInicio);
       case 'configuracion':
-        return const MenuConfigView(); // <-- Vista de configuración integrada
+        return const MenuConfigView();
 
       default:
         return HomeView(
@@ -197,6 +207,7 @@ class _UserLayoutState extends State<UserLayout> {
                       _activePage == 'home' || _activePage == 'colecciones',
                   searchInitialText: _catalogSearchQuery,
                   onSearchSubmitted: _onCatalogSearch,
+                  onNotificationsTap: _onNotificationsTap,
                 ),
                 body: Stack(
                   children: [
