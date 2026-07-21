@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../../config/data_config.dart';
@@ -8,14 +10,10 @@ import '../../../widgets/app_ui.dart';
 import 'checkout_view.dart';
 import 'product_detail_view.dart';
 
-/// Vista de Carrito. Las cantidades viven en `CarritoService`
-/// (compartido con `ProductDetailView` y `FavoritesView`); esta vista
-/// solo pide, con esos ids, los artículos completos y calcula el
-/// resumen de compra en tiempo real.
+/// Vista de Carrito.
 ///
-/// [onIrAInicio] se usa para el botón "Elegir más productos": cambia a
-/// la pestaña de Inicio del bottom bar (igual que `onIrAColecciones` en
-/// HomeView), en vez de abrir una pantalla nueva.
+/// Countdown de reserva: un solo [ValueNotifier] + widgets locales
+/// (no setState de toda la lista cada segundo).
 class CartView extends StatefulWidget {
   final VoidCallback onIrAInicio;
 
@@ -29,33 +27,111 @@ class _CartViewState extends State<CartView> {
   final _articuloService = ArticuloService();
 
   bool _loading = true;
+  bool _reloading = false;
   String? _error;
   List<Articulo> _articulos = [];
+
+  /// Tick central del reloj de reservas (solo reconstruye textos de countdown).
+  final ValueNotifier<int> _clockTick = ValueNotifier<int>(0);
+  Timer? _tick;
+  Timer? _poll;
+
+  /// Evita que notifyListeners del carrito dispare otro reload en cadena.
+  bool _ignoreCarritoListener = false;
 
   @override
   void initState() {
     super.initState();
     _cargarDatos();
     CarritoService.instance.addListener(_onCarritoChanged);
+
+    _tick = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!mounted) return;
+      if (!CarritoService.instance.usaReservaRemota) return;
+      // Solo avanza el reloj; no setState del ListView.
+      _clockTick.value = _clockTick.value + 1;
+    });
+
+    _poll = Timer.periodic(const Duration(seconds: 30), (_) {
+      if (!mounted || !CarritoService.instance.usaReservaRemota) return;
+      _cargarDatos(silent: true, showLiberadosSnack: true);
+    });
   }
 
   @override
   void dispose() {
+    _tick?.cancel();
+    _poll?.cancel();
+    _clockTick.dispose();
     CarritoService.instance.removeListener(_onCarritoChanged);
     super.dispose();
   }
 
   void _onCarritoChanged() {
-    _cargarDatos();
+    if (!mounted || _ignoreCarritoListener || _reloading) return;
+    // Actualización local (cantidades/ítems) sin reconsultar red en bucle.
+    _aplicarEstadoLocalDelCarrito();
   }
 
-  Future<void> _cargarDatos() async {
+  /// Refresca la lista de artículos mostrados según ids del servicio.
+  /// Si faltan datos de catálogo, hace fetch puntual (no en cada tick).
+  Future<void> _aplicarEstadoLocalDelCarrito() async {
+    final ids = CarritoService.instance.cantidades.keys.toSet();
+    final actuales = {for (final a in _articulos) a.id};
+
+    // Quitar los que ya no están.
+    final kept = _articulos.where((a) => ids.contains(a.id)).toList();
+
+    // Traer solo los ids nuevos.
+    final missing = ids.where((id) => !actuales.contains(id)).toList();
+    if (missing.isNotEmpty) {
+      try {
+        final nuevos = await _articuloService.fetchArticulosPorIds(missing);
+        kept.addAll(nuevos);
+      } catch (_) {
+        // Sin catálogo para el nuevo id: igual se muestra el resto.
+      }
+    }
+
+    if (!mounted) return;
     setState(() {
-      _loading = true;
-      _error = null;
+      _articulos = kept;
+      if (_loading) _loading = false;
     });
+  }
+
+  Future<void> _cargarDatos({
+    bool silent = false,
+    bool showLiberadosSnack = false,
+  }) async {
+    if (_reloading) return;
+    _reloading = true;
+    _ignoreCarritoListener = true;
+
+    if (!silent && mounted) {
+      setState(() {
+        _loading = true;
+        _error = null;
+      });
+    }
 
     try {
+      if (CarritoService.instance.usaReservaRemota) {
+        // notify:false → no reentrar por el listener del servicio.
+        await CarritoService.instance.sincronizarRemoto(notify: false);
+        if (showLiberadosSnack &&
+            CarritoService.instance.reservasLiberadasRecientes > 0 &&
+            mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Algunas reservas vencieron y el stock se liberó.',
+              ),
+            ),
+          );
+        }
+      }
+
       final ids = CarritoService.instance.cantidades.keys;
       final articulos = await _articuloService.fetchArticulosPorIds(ids);
 
@@ -63,13 +139,34 @@ class _CartViewState extends State<CartView> {
       setState(() {
         _articulos = articulos;
         _loading = false;
+        _error = null;
       });
     } catch (e) {
       if (!mounted) return;
-      setState(() {
-        _error = 'No se pudo cargar el carrito: $e';
-        _loading = false;
-      });
+      if (!silent) {
+        setState(() {
+          _error = 'No se pudo cargar el carrito: $e';
+          _loading = false;
+        });
+      }
+    } finally {
+      _reloading = false;
+      _ignoreCarritoListener = false;
+    }
+  }
+
+  Future<void> _runCartAction(Future<void> Function() action) async {
+    try {
+      // Las mutaciones del servicio ya notifican; el listener actualiza UI.
+      await action();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.toString().replaceFirst('Exception: ', '')),
+          backgroundColor: Colors.red.shade700,
+        ),
+      );
     }
   }
 
@@ -87,11 +184,14 @@ class _CartViewState extends State<CartView> {
     return ids.length > 1;
   }
 
-  void _vaciarCarrito() {
-    CarritoService.instance.vaciar();
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Carrito vaciado')),
-    );
+  Future<void> _vaciarCarrito() async {
+    await _runCartAction(() async {
+      await CarritoService.instance.vaciar();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Carrito vaciado')),
+      );
+    });
   }
 
   void _continuarCompra() {
@@ -100,7 +200,7 @@ class _CartViewState extends State<CartView> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
-            'El carrito mezcla tiendas. En esta versión solo puedes '
+            'El carrito mezcla tiendas. Por ahora solo puedes '
             'comprar de una tienda a la vez. Quita productos de otras tiendas.',
           ),
           backgroundColor: Colors.red,
@@ -116,8 +216,6 @@ class _CartViewState extends State<CartView> {
       ),
     );
   }
-
-  // --- Cálculos del resumen ---
 
   double get _subtotalOriginal {
     double total = 0;
@@ -148,7 +246,10 @@ class _CartViewState extends State<CartView> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(color: const Color(0xFFF8F5F2), child: _buildBody());
+    return Material(
+      color: const Color(0xFFF8F5F2),
+      child: _buildBody(),
+    );
   }
 
   Widget _buildBody() {
@@ -157,7 +258,7 @@ class _CartViewState extends State<CartView> {
     }
 
     if (_error != null) {
-      return AppErrorView(message: _error!, onRetry: _cargarDatos);
+      return AppErrorView(message: _error!, onRetry: () => _cargarDatos());
     }
 
     if (_articulos.isEmpty) {
@@ -165,7 +266,7 @@ class _CartViewState extends State<CartView> {
     }
 
     return RefreshIndicator(
-      onRefresh: _cargarDatos,
+      onRefresh: () => _cargarDatos(),
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 24.0),
@@ -183,7 +284,11 @@ class _CartViewState extends State<CartView> {
               child: const Text(
                 'Hay productos de más de una tienda. Por ahora solo puedes '
                 'comprar de una tienda a la vez: ajusta el carrito antes de continuar.',
-                style: TextStyle(fontSize: 12, color: Color(0xFFB71C1C), height: 1.35),
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Color(0xFFB71C1C),
+                  height: 1.35,
+                ),
               ),
             ),
           Align(
@@ -196,7 +301,10 @@ class _CartViewState extends State<CartView> {
             ),
           ),
           for (final articulo in _articulos) ...[
-            _buildCartItem(articulo),
+            KeyedSubtree(
+              key: ValueKey('cart_item_${articulo.id}'),
+              child: _buildCartItem(articulo),
+            ),
             const SizedBox(height: 16),
           ],
           const SizedBox(height: 8),
@@ -237,163 +345,198 @@ class _CartViewState extends State<CartView> {
     );
   }
 
-  // --- Tarjeta de producto en carrito ---
   Widget _buildCartItem(Articulo articulo) {
     final cantidad = CarritoService.instance.cantidadDe(articulo.id);
     final subtotalItem = articulo.precioFinal * cantidad;
 
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
+    return Material(
+      color: Colors.white,
+      elevation: 0,
+      borderRadius: BorderRadius.circular(16),
       clipBehavior: Clip.antiAlias,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          GestureDetector(
-            onTap: () => _abrirArticulo(articulo.id),
-            child: SizedBox(
-              height: 140,
-              width: double.infinity,
-              child: articulo.imagenUrl.startsWith('http')
-                  ? Image.network(
-                      articulo.imagenUrl,
-                      fit: BoxFit.cover,
-                      // 404/seed Unsplash roto → placeholder, no rompe el checkout.
-                      errorBuilder: (_, __, ___) => ColoredBox(
-                        color: Colors.grey.shade300,
-                        child: const Center(
-                          child: Icon(
-                            Icons.image_not_supported_outlined,
-                            color: Colors.black38,
-                          ),
-                        ),
-                      ),
-                    )
-                  : ColoredBox(color: Colors.grey.shade300),
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.04),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
             ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                GestureDetector(
-                  onTap: () => _abrirArticulo(articulo.id),
-                  child: Text(
-                    articulo.nombre,
-                    style: const TextStyle(fontSize: 14, color: Colors.black87),
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  '${articulo.tela.toUpperCase()} • ${articulo.color.toUpperCase()}'
-                      .replaceAll('N/A • ', '')
-                      .replaceAll(' • N/A', ''),
-                  style: const TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black54,
-                    letterSpacing: 0.5,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Row(
-                      children: [
-                        _buildQuantityButton(
-                          Icons.remove,
-                          onTap: () => CarritoService.instance
-                              .actualizarCantidad(articulo.id, cantidad - 1),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                          child: Text(
-                            '$cantidad',
-                            style: const TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.bold,
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            GestureDetector(
+              onTap: () => _abrirArticulo(articulo.id),
+              child: SizedBox(
+                height: 140,
+                width: double.infinity,
+                child: articulo.imagenUrl.startsWith('http')
+                    ? Image.network(
+                        articulo.imagenUrl,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) =>
+                            ColoredBox(
+                          color: Colors.grey.shade300,
+                          child: const Center(
+                            child: Icon(
+                              Icons.image_not_supported_outlined,
+                              color: Colors.black38,
                             ),
                           ),
                         ),
-                        _buildQuantityButton(
-                          Icons.add,
-                          onTap: () => CarritoService.instance
-                              .actualizarCantidad(articulo.id, cantidad + 1),
-                        ),
-                      ],
+                      )
+                    : ColoredBox(color: Colors.grey.shade300),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  GestureDetector(
+                    onTap: () => _abrirArticulo(articulo.id),
+                    child: Text(
+                      articulo.nombre,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        color: Colors.black87,
+                      ),
                     ),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Text(
-                          '\$${subtotalItem.toStringAsFixed(2)} MXN',
-                          style: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w900,
-                            color: Color(0xFFD81B60),
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        GestureDetector(
-                          onTap: () =>
-                              CarritoService.instance.quitar(articulo.id),
-                          child: Row(
-                            children: [
-                              Icon(
-                                Icons.delete_outline,
-                                size: 14,
-                                color: Colors.red[400],
-                              ),
-                              const SizedBox(width: 4),
-                              Text(
-                                'Eliminar',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.red[400],
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '${articulo.tela.toUpperCase()} • ${articulo.color.toUpperCase()}'
+                        .replaceAll('N/A • ', '')
+                        .replaceAll(' • N/A', ''),
+                    style: const TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black54,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                  if (CarritoService.instance.usaReservaRemota) ...[
+                    const SizedBox(height: 8),
+                    _ReservaCountdownLabel(
+                      articuloId: articulo.id,
+                      clock: _clockTick,
+                    ),
+                    const Text(
+                      'Stock reservado temporalmente para ti.',
+                      style: TextStyle(fontSize: 11, color: Colors.black45),
                     ),
                   ],
-                ),
-              ],
+                  const SizedBox(height: 16),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Row(
+                        children: [
+                          _buildQuantityButton(
+                            Icons.remove,
+                            onTap: () => _runCartAction(
+                              () => CarritoService.instance
+                                  .actualizarCantidad(
+                                articulo.id,
+                                cantidad - 1,
+                              ),
+                            ),
+                          ),
+                          Padding(
+                            padding:
+                                const EdgeInsets.symmetric(horizontal: 16.0),
+                            child: Text(
+                              '$cantidad',
+                              style: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                          _buildQuantityButton(
+                            Icons.add,
+                            onTap: () => _runCartAction(
+                              () => CarritoService.instance
+                                  .actualizarCantidad(
+                                articulo.id,
+                                cantidad + 1,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Text(
+                            '\$${subtotalItem.toStringAsFixed(2)} MXN',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w900,
+                              color: Color(0xFFD81B60),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          GestureDetector(
+                            onTap: () => _runCartAction(
+                              () => CarritoService.instance
+                                  .quitar(articulo.id),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.delete_outline,
+                                  size: 14,
+                                  color: Colors.red[400],
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  'Eliminar',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.red[400],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildQuantityButton(IconData icon, {required VoidCallback onTap}) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(4),
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          border: Border.all(color: const Color(0xFFD81B60).withOpacity(0.3)),
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        customBorder: const CircleBorder(),
+        child: Container(
+          padding: const EdgeInsets.all(4),
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            border: Border.all(
+              color: const Color(0xFFD81B60).withValues(alpha: 0.3),
+            ),
+          ),
+          child: Icon(icon, size: 16, color: const Color(0xFFD81B60)),
         ),
-        child: Icon(icon, size: 16, color: const Color(0xFFD81B60)),
       ),
     );
   }
 
-  // --- Resumen de compra ---
   Widget _buildOrderSummary() {
     return Container(
       padding: const EdgeInsets.all(20),
@@ -402,7 +545,7 @@ class _CartViewState extends State<CartView> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: Colors.black.withValues(alpha: 0.04),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -427,7 +570,9 @@ class _CartViewState extends State<CartView> {
           const SizedBox(height: 12),
           _buildSummaryRow(
             'Envío (Nacional)',
-            _costoEnvio == 0 ? 'Gratis' : '\$${_costoEnvio.toStringAsFixed(2)}',
+            _costoEnvio == 0
+                ? 'Gratis'
+                : '\$${_costoEnvio.toStringAsFixed(2)}',
           ),
           if (_descuentoArtesanal > 0) ...[
             const SizedBox(height: 12),
@@ -465,7 +610,7 @@ class _CartViewState extends State<CartView> {
                     ),
                   ),
                   const SizedBox(height: 4),
-                  Text(
+                  const Text(
                     'IVA incluido',
                     style: TextStyle(
                       fontSize: 10,
@@ -506,31 +651,13 @@ class _CartViewState extends State<CartView> {
                   ),
                   if (!_multiTienda) ...[
                     const SizedBox(width: 8),
-                    const Icon(Icons.arrow_forward, color: Colors.white, size: 18),
+                    const Icon(
+                      Icons.arrow_forward,
+                      color: Colors.white,
+                      size: 18,
+                    ),
                   ],
                 ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton(
-              onPressed: widget.onIrAInicio,
-              style: OutlinedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                side: const BorderSide(color: Color(0xFFD81B60), width: 1.5),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(24),
-                ),
-              ),
-              child: const Text(
-                'Elegir más productos',
-                style: TextStyle(
-                  color: Color(0xFFD81B60),
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                ),
               ),
             ),
           ),
@@ -549,18 +676,14 @@ class _CartViewState extends State<CartView> {
       children: [
         Text(
           label,
-          style: TextStyle(
-            fontSize: 12,
-            color: isDiscount ? const Color(0xFF00BFA5) : Colors.black54,
-            fontWeight: isDiscount ? FontWeight.bold : FontWeight.normal,
-          ),
+          style: const TextStyle(fontSize: 13, color: Colors.black54),
         ),
         Text(
           value,
           style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.bold,
-            color: isDiscount ? const Color(0xFF00BFA5) : Colors.black87,
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: isDiscount ? const Color(0xFF2E7D32) : Colors.black87,
           ),
         ),
       ],
@@ -568,35 +691,59 @@ class _CartViewState extends State<CartView> {
   }
 
   Widget _buildSecurityBadge() {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: const Color(0xFFEef4fb),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Row(
-        children: const [
-          Icon(Icons.security, color: Color(0xFFD81B60), size: 20),
-          SizedBox(width: 12),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Compra Segura',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w900,
-                  color: Colors.black87,
-                ),
-              ),
-              Text(
-                'Protección de datos garantizada',
-                style: TextStyle(fontSize: 10, color: Colors.black54),
-              ),
-            ],
+    return const Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Icon(Icons.lock_outline, size: 14, color: Colors.black38),
+        SizedBox(width: 6),
+        Text(
+          'Compra protegida · pago de prueba sin cobro real',
+          style: TextStyle(fontSize: 11, color: Colors.black38),
+        ),
+      ],
+    );
+  }
+}
+
+/// Solo reconstruye el texto del countdown al avanzar [_clockTick].
+class _ReservaCountdownLabel extends StatelessWidget {
+  final int articuloId;
+  final ValueNotifier<int> clock;
+
+  const _ReservaCountdownLabel({
+    required this.articuloId,
+    required this.clock,
+  });
+
+  String _fmt(Duration? d) {
+    if (d == null) return '';
+    if (d == Duration.zero) return 'Reserva vencida';
+    final m = d.inMinutes;
+    final s = d.inSeconds % 60;
+    if (m > 0) return 'Reserva: ${m}m ${s.toString().padLeft(2, '0')}s';
+    return 'Reserva: ${s}s';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<int>(
+      valueListenable: clock,
+      builder: (context, tick, child) {
+        final exp = CarritoService.instance.expiresAtDe(articuloId);
+        Duration? left;
+        if (exp != null) {
+          final diff = exp.toLocal().difference(DateTime.now());
+          left = diff.isNegative ? Duration.zero : diff;
+        }
+        return Text(
+          _fmt(left),
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: Colors.orange.shade800,
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 }

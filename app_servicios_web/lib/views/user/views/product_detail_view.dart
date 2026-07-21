@@ -224,7 +224,7 @@ class _ProductDetailViewState extends State<ProductDetailView> {
     );
   }
 
-  void _agregarAlCarrito() {
+  Future<void> _agregarAlCarrito() async {
     final articulo = _articulo;
     if (articulo == null) return;
     if (!_puedeComprar) {
@@ -236,16 +236,28 @@ class _ProductDetailViewState extends State<ProductDetailView> {
       );
       return;
     }
-    CarritoService.instance.agregar(articulo.id);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('“${articulo.nombre}” agregado al carrito'),
-        action: SnackBarAction(
-          label: 'OK',
-          onPressed: () {},
+    try {
+      await CarritoService.instance.agregar(articulo.id);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            CarritoService.instance.usaReservaRemota
+                ? '“${articulo.nombre}” reservado en tu carrito (5 min).'
+                : '“${articulo.nombre}” agregado al carrito',
+          ),
+          action: SnackBarAction(label: 'OK', onPressed: () {}),
         ),
-      ),
-    );
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.toString().replaceFirst('Exception: ', '')),
+          backgroundColor: Colors.red.shade700,
+        ),
+      );
+    }
   }
 
   @override
