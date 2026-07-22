@@ -8,6 +8,7 @@ import '../../../services/api_service.dart';
 import '../../../services/articulo_service.dart';
 import '../../../services/carrito_service.dart';
 import '../../../widgets/app_ui.dart';
+import '../../../widgets/guest_auth_gate.dart';
 import 'checkout_view.dart';
 import 'product_detail_view.dart';
 
@@ -197,6 +198,8 @@ class _CartViewState extends State<CartView> {
 
   Future<void> _continuarCompra() async {
     if (_articulos.isEmpty) return;
+    if (!await ensureLoggedInForPurchase(context)) return;
+    if (!mounted) return;
     if (await ApiService().isVendedor()) {
       if (!mounted) return;
       AppUi.showAccionNoPermitidaVendedor(context);

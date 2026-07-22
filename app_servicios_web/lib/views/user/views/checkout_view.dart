@@ -4,6 +4,7 @@ import '../../../models/articulo.dart';
 import '../../../services/api_service.dart';
 import '../../../services/articulo_service.dart';
 import '../../../widgets/app_ui.dart';
+import '../../../widgets/guest_auth_gate.dart';
 import 'payment_processing_view.dart';
 
 /// Checkout: resumen del carrito local + flujo de **pago simulado**.
@@ -78,6 +79,9 @@ class _CheckoutViewState extends State<CheckoutView> {
 
   Future<void> _continuarAPagoSimulado() async {
     if (_articulos.isEmpty) return;
+
+    if (!await ensureLoggedInForPurchase(context)) return;
+    if (!mounted) return;
 
     if (await ApiService().isVendedor()) {
       if (!mounted) return;

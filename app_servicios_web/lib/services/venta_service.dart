@@ -224,6 +224,12 @@ class VentaService {
     String? metodoPago,
     bool alreadyRetried = false,
   }) async {
+    final token = await ApiService().getToken();
+    if (token == null || token.trim().isEmpty) {
+      throw Exception(
+        'Para comprar necesitas iniciar sesión o crear una cuenta.',
+      );
+    }
     if (await ApiService().isVendedor()) {
       throw Exception(ApiService.msgAccionNoPermitidaVendedor);
     }

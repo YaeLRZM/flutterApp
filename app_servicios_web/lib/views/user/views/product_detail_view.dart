@@ -14,6 +14,7 @@ import '../../../services/resena_service.dart';
 import '../../../services/venta_service.dart';
 import '../../../widgets/app_ui.dart';
 import '../../../widgets/favorite_heart_button.dart';
+import '../../../widgets/guest_auth_gate.dart';
 import '../../../widgets/product_grid_item.dart';
 import '../../../widgets/product_image_gallery.dart';
 import 'checkout_view.dart';
@@ -259,13 +260,16 @@ class _ProductDetailViewState extends State<ProductDetailView> {
   /// Apariencia habilitada: stock OK y no es cuenta vendedor.
   bool get _accionesCompraHabilitadas => _puedeComprar && !_esVendedor;
 
-  void _comprarAhora() {
+  Future<void> _comprarAhora() async {
     final articulo = _articulo;
     if (articulo == null) return;
     if (_esVendedor) {
       _avisarAccionVendedor();
       return;
     }
+    // Invitado: no inicia compra; aviso con Iniciar sesión / Registrarme.
+    if (!await ensureLoggedInForPurchase(context)) return;
+    if (!mounted) return;
     if (!_puedeComprar) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -290,6 +294,9 @@ class _ProductDetailViewState extends State<ProductDetailView> {
       _avisarAccionVendedor();
       return;
     }
+    // Agregar al carrito con cuenta: si no hay sesión, invitar a entrar.
+    if (!await ensureLoggedInForPurchase(context)) return;
+    if (!mounted) return;
     if (!_puedeComprar) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(

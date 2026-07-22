@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../config/data_config.dart';
 import 'auth/login_screen.dart';
 import 'user/user_layout.dart';
 
@@ -104,7 +103,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                               ),
                               const SizedBox(height: 48),
 
-                              // Botón Empezar
+                              // Empezar = explorar catálogo como invitado (sin login).
                               SizedBox(
                                 width: double.infinity,
                                 child: ElevatedButton(
@@ -112,7 +111,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                                     Navigator.push(
                                       context,
                                       MaterialPageRoute(
-                                        builder: (_) => const LoginScreen(),
+                                        builder: (_) => const UserLayout(),
                                       ),
                                     );
                                   },
@@ -142,7 +141,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                               ),
                               const SizedBox(height: 20),
 
-                              // Botón Iniciar Sesión — contraste alto sobre fondo rosa
+                              // Iniciar sesión = acceso con cuenta.
                               SizedBox(
                                 width: double.infinity,
                                 child: OutlinedButton(
@@ -180,32 +179,6 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                                   ),
                                 ),
                               ),
-
-                              // Acceso rápido de desarrollo: entra sin login
-                              // mientras se trabaja con datos mock (kUseMockData).
-                              // TODO: quitar este botón antes de conectar la API real.
-                              if (kUseMockData) ...[
-                                const SizedBox(height: 12),
-                                TextButton(
-                                  onPressed: () {
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (_) => const UserLayout(),
-                                      ),
-                                    );
-                                  },
-                                  child: Text(
-                                    'Explorar catálogo sin cuenta',
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w600,
-                                      letterSpacing: 0.5,
-                                      color: Colors.white.withOpacity(0.7),
-                                    ),
-                                  ),
-                                ),
-                              ],
                             ],
                           ),
                         ),
