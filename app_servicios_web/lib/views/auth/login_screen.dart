@@ -6,12 +6,23 @@ import '../../services/api_service.dart';
 import '../../services/local_session_store.dart';
 import '../../widgets/app_ui.dart';
 import '../user/user_layout.dart';
+import '../user/views/product_detail_view.dart';
 import '../vendedor/vendedor_layout.dart';
 import 'vendedor_identidad_screen.dart';
 import 'register_screen.dart';
 
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key});
+  /// Página del layout de comprador tras un login exitoso (ej. 'cart').
+  final String? returnPage;
+
+  /// Si se llegó desde un producto concreto, regresar a su detalle tras login.
+  final int? returnArticuloId;
+
+  const LoginScreen({
+    super.key,
+    this.returnPage,
+    this.returnArticuloId,
+  });
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -38,6 +49,15 @@ class _LoginScreenState extends State<LoginScreen> {
     _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
+  }
+
+  /// Catálogo como invitado sin forzar inicio de sesión (sin bucles).
+  void _empezarComoInvitado() {
+    if (_isLoading) return;
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (_) => const UserLayout()),
+    );
   }
 
   /// Si hay JWT local y /api/me responde, entra al layout del rol real.
@@ -79,13 +99,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
     final isSeller = ApiService.isVendedorRoleName(role);
     if (!mounted) return;
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(
-        builder: (_) =>
-            isSeller ? const VendedorLayout() : const UserLayout(),
-      ),
-    );
+    await _navigateAfterAuth(isSeller: isSeller);
   }
 
   void _loginWithGoogle() {
@@ -123,6 +137,109 @@ class _LoginScreenState extends State<LoginScreen> {
     return null;
   }
 
+  /// Tras autenticación válida: comprador con contexto de compra o panel vendedor.
+  Future<void> _navigateAfterAuth({required bool isSeller}) async {
+    if (!mounted) return;
+
+    if (isSeller) {
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (_) => const VendedorLayout()),
+        (route) => false,
+      );
+      return;
+    }
+
+    final page = (widget.returnPage != null && widget.returnPage!.isNotEmpty)
+        ? widget.returnPage!
+        : 'home';
+    final articuloId = widget.returnArticuloId;
+
+    // Continuidad: layout de comprador y, si venía de un artículo, su detalle.
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(
+        builder: (routeContext) {
+          if (articuloId != null && articuloId > 0) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (!routeContext.mounted) return;
+              Navigator.of(routeContext).push(
+                MaterialPageRoute(
+                  builder: (_) => ProductDetailView(articuloId: articuloId),
+                ),
+              );
+            });
+          }
+          return UserLayout(initialPage: page);
+        },
+      ),
+      (route) => false,
+    );
+  }
+
+  /// Aviso amable si la pestaña no coincide con el tipo real de cuenta.
+  /// Opción estable: Cambiar ajusta la pestaña y continúa el acceso;
+  /// Cancelar deshace la sesión recién creada para que pueda corregir.
+  Future<bool> _confirmRoleTabMismatch({required bool isSellerActual}) async {
+    final esVendedor = isSellerActual;
+    final mensaje = esVendedor
+        ? 'Esta cuenta corresponde a vendedor. Cambia a la pestaña de vendedor para continuar.'
+        : 'Esta cuenta corresponde a usuario. Cambia a la pestaña de usuario para continuar.';
+
+    final result = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: Text(
+            'Pestaña incorrecta',
+            style: GoogleFonts.poppins(
+              fontWeight: FontWeight.w700,
+              fontSize: 18,
+            ),
+          ),
+          content: Text(
+            mensaje,
+            style: GoogleFonts.dmSans(
+              fontSize: 14,
+              height: 1.4,
+              color: Colors.black87,
+            ),
+          ),
+          actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: Text(
+                'Cancelar',
+                style: GoogleFonts.dmSans(color: Colors.black54),
+              ),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFD81B60),
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(24),
+                ),
+              ),
+              child: Text(
+                'Cambiar',
+                style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+
+    return result == true;
+  }
+
   Future<void> _login() async {
     if (_isLoading) return;
     if (!_formKey.currentState!.validate()) return;
@@ -136,12 +253,14 @@ class _LoginScreenState extends State<LoginScreen> {
     );
 
     if (!mounted) return;
-    setState(() => _isLoading = false);
 
     if (response['success'] != true) {
+      setState(() => _isLoading = false);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(response['message']?.toString() ?? 'Error al iniciar sesión'),
+          content: Text(
+            response['message']?.toString() ?? 'Error al iniciar sesión',
+          ),
           backgroundColor: Colors.red.shade700,
         ),
       );
@@ -158,6 +277,7 @@ class _LoginScreenState extends State<LoginScreen> {
       await apiService.clearToken();
       await LocalSessionStore.onGuest();
       if (!mounted) return;
+      setState(() => _isLoading = false);
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Los administradores deben usar el panel web.'),
@@ -168,40 +288,41 @@ class _LoginScreenState extends State<LoginScreen> {
       return;
     }
 
+    final bool isSellerActual = ApiService.isVendedorRoleName(userRole);
+
+    // Verificación de pestaña: no entrar en silencio si no coincide.
+    if (isSellerActual != _isSeller) {
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+      final accepted = await _confirmRoleTabMismatch(
+        isSellerActual: isSellerActual,
+      );
+      if (!mounted) return;
+
+      if (!accepted) {
+        // Cancelar: deshacer sesión para no dejar al usuario a medias.
+        await apiService.clearToken();
+        await LocalSessionStore.onGuest();
+        if (!mounted) return;
+        setState(() => _isSeller = isSellerActual);
+        return;
+      }
+
+      // Cambiar: alinear pestaña y continuar el acceso con el rol real.
+      setState(() {
+        _isSeller = isSellerActual;
+        _isLoading = true;
+      });
+    }
+
     await apiService.saveRole(userRole);
     await LocalSessionStore.onAuthenticated(
       userId: LocalSessionStore.userIdFromMap(response['user']),
     );
 
-    final bool isSellerActual = ApiService.isVendedorRoleName(userRole);
-
-    // Si el toggle no coincide, se avisa pero se entra con el rol real.
-    if (isSellerActual != _isSeller && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            isSellerActual
-                ? 'Cuenta de vendedor: entrando al panel vendedor.'
-                : 'Cuenta de comprador: entrando al catálogo.',
-          ),
-          backgroundColor: Colors.orange.shade800,
-          duration: const Duration(seconds: 3),
-        ),
-      );
-    }
-
     if (!mounted) return;
-    if (isSellerActual) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const VendedorLayout()),
-      );
-    } else {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const UserLayout()),
-      );
-    }
+    setState(() => _isLoading = false);
+    await _navigateAfterAuth(isSeller: isSellerActual);
   }
 
   @override
@@ -332,7 +453,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'El acceso depende del rol real de tu cuenta.',
+                        'Elige la pestaña según tu tipo de cuenta.',
                         style: GoogleFonts.dmSans(
                           fontSize: 11,
                           color: Colors.black54,
@@ -465,7 +586,44 @@ class _LoginScreenState extends State<LoginScreen> {
                                 ),
                         ),
                       ),
-                      const SizedBox(height: 20),
+                      const SizedBox(height: 12),
+
+                      // Empezar = explorar catálogo sin cuenta (misma idea que welcome).
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton(
+                          onPressed: _isLoading ? null : _empezarComoInvitado,
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: const Color(0xFFD81B60),
+                            side: const BorderSide(
+                              color: Color(0xFFD81B60),
+                              width: 1.5,
+                            ),
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(30),
+                            ),
+                          ),
+                          child: Text(
+                            'Empezar',
+                            style: GoogleFonts.poppins(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                              color: const Color(0xFFD81B60),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        'Explora el catálogo sin iniciar sesión',
+                        style: GoogleFonts.dmSans(
+                          fontSize: 11,
+                          color: Colors.black45,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 16),
 
                       if (!_isSeller) ...[
                         GestureDetector(

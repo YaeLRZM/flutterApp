@@ -103,7 +103,7 @@ class CarritoService extends ChangeNotifier {
       return;
     }
 
-    // Login: migrar guest → remoto si aplica.
+    // Login: conservar lo que el invitado tenía y fusionarlo con la cuenta.
     final guestMap = Map<int, int>.from(_cantidades);
     _ownerUserId = userId;
     _cantidades.clear();
@@ -112,22 +112,40 @@ class CarritoService extends ChangeNotifier {
 
     try {
       await sincronizarRemoto();
-      if (_cantidades.isEmpty && guestMap.isNotEmpty) {
-        for (final e in guestMap.entries) {
-          try {
-            await agregar(e.key, cantidad: e.value);
-          } catch (_) {
-            // Stock insuficiente u otro: se omite ese ítem.
-          }
-        }
+      if (guestMap.isNotEmpty) {
+        await _mergeGuestIntoRemote(guestMap);
       }
       await _writeMap(_guestKey, {});
     } catch (_) {
-      // Si falla red, al menos guarda local del usuario.
+      // Si falla red, al menos guarda local del usuario con el guest.
       _cantidades.addAll(guestMap);
       await _persistLocal();
     }
     notifyListeners();
+  }
+
+  /// Fusiona el carrito de invitado con el remoto sin duplicar prendas.
+  /// - Si la prenda solo está en guest → se agrega.
+  /// - Si está en ambos → se conserva la cantidad mayor (no se suman a ciegas).
+  /// - El carrito de la cuenta nunca se borra.
+  Future<void> _mergeGuestIntoRemote(Map<int, int> guestMap) async {
+    for (final e in guestMap.entries) {
+      final id = e.key;
+      final guestQty = e.value;
+      if (guestQty <= 0) continue;
+      final remoteQty = _cantidades[id] ?? 0;
+      try {
+        if (remoteQty <= 0) {
+          await agregar(id, cantidad: guestQty);
+        } else if (guestQty > remoteQty) {
+          // Misma prenda: no duplicar línea; subir a la mayor cantidad útil.
+          await actualizarCantidad(id, guestQty);
+        }
+        // Si remote ya tiene igual o más, se deja como está.
+      } catch (_) {
+        // Stock insuficiente u otro: se omite ese ítem del guest.
+      }
+    }
   }
 
   /// Sincroniza con backend. [notify] false evita bucles cuando la vista

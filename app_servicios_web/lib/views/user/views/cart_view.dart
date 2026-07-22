@@ -198,7 +198,7 @@ class _CartViewState extends State<CartView> {
 
   Future<void> _continuarCompra() async {
     if (_articulos.isEmpty) return;
-    if (!await ensureLoggedInForPurchase(context)) return;
+    if (!await ensureLoggedInForPurchase(context, returnPage: 'cart')) return;
     if (!mounted) return;
     if (await ApiService().isVendedor()) {
       if (!mounted) return;

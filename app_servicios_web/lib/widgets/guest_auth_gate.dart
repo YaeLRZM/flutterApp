@@ -12,15 +12,30 @@ Future<bool> hasActiveSession() async {
 
 /// Si no hay sesión, muestra aviso para iniciar sesión o registrarse.
 /// Devuelve true si hay sesión y se puede continuar la acción de compra.
-Future<bool> ensureLoggedInForPurchase(BuildContext context) async {
+///
+/// [returnPage]: página del layout tras login (ej. 'cart').
+/// [returnArticuloId]: detalle de producto al que regresar tras login.
+Future<bool> ensureLoggedInForPurchase(
+  BuildContext context, {
+  String? returnPage,
+  int? returnArticuloId,
+}) async {
   if (await hasActiveSession()) return true;
   if (!context.mounted) return false;
-  await showGuestPurchaseDialog(context);
+  await showGuestPurchaseDialog(
+    context,
+    returnPage: returnPage,
+    returnArticuloId: returnArticuloId,
+  );
   return false;
 }
 
 /// Modal claro para invitado que intenta comprar.
-Future<void> showGuestPurchaseDialog(BuildContext context) async {
+Future<void> showGuestPurchaseDialog(
+  BuildContext context, {
+  String? returnPage,
+  int? returnArticuloId,
+}) async {
   await showDialog<void>(
     context: context,
     builder: (ctx) {
@@ -31,7 +46,8 @@ Future<void> showGuestPurchaseDialog(BuildContext context) async {
           style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18),
         ),
         content: const Text(
-          'Para comprar necesitas iniciar sesión o crear una cuenta.',
+          'Para comprar necesitas iniciar sesión o crear una cuenta.\n'
+          'Continúa con tu compra después de iniciar sesión.',
           style: TextStyle(fontSize: 14, height: 1.4, color: Colors.black87),
         ),
         actionsAlignment: MainAxisAlignment.spaceBetween,
@@ -49,7 +65,12 @@ Future<void> showGuestPurchaseDialog(BuildContext context) async {
                   Navigator.pop(ctx);
                   Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (_) => const LoginScreen()),
+                    MaterialPageRoute(
+                      builder: (_) => LoginScreen(
+                        returnPage: returnPage,
+                        returnArticuloId: returnArticuloId,
+                      ),
+                    ),
                   );
                 },
                 style: OutlinedButton.styleFrom(

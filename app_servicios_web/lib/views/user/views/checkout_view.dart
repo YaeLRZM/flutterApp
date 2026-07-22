@@ -80,7 +80,7 @@ class _CheckoutViewState extends State<CheckoutView> {
   Future<void> _continuarAPagoSimulado() async {
     if (_articulos.isEmpty) return;
 
-    if (!await ensureLoggedInForPurchase(context)) return;
+    if (!await ensureLoggedInForPurchase(context, returnPage: 'cart')) return;
     if (!mounted) return;
 
     if (await ApiService().isVendedor()) {

@@ -267,8 +267,13 @@ class _ProductDetailViewState extends State<ProductDetailView> {
       _avisarAccionVendedor();
       return;
     }
-    // Invitado: no inicia compra; aviso con Iniciar sesión / Registrarme.
-    if (!await ensureLoggedInForPurchase(context)) return;
+    // Invitado: no inicia compra; aviso y, al entrar, regresa a este producto.
+    if (!await ensureLoggedInForPurchase(
+      context,
+      returnArticuloId: articulo.id,
+    )) {
+      return;
+    }
     if (!mounted) return;
     if (!_puedeComprar) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -294,8 +299,7 @@ class _ProductDetailViewState extends State<ProductDetailView> {
       _avisarAccionVendedor();
       return;
     }
-    // Agregar al carrito con cuenta: si no hay sesión, invitar a entrar.
-    if (!await ensureLoggedInForPurchase(context)) return;
+    // Invitado puede agregar al carrito local; se conserva al iniciar sesión.
     if (!mounted) return;
     if (!_puedeComprar) {
       ScaffoldMessenger.of(context).showSnackBar(

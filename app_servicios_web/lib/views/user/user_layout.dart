@@ -174,6 +174,7 @@ class _UserLayoutState extends State<UserLayout> {
             onClose: _toggleDrawer,
             isSeller: false,
             currentRoute: _activePage,
+            drawerOpen: _isDrawerOpen,
             onNavigate: (route) {
               _toggleDrawer(); // Cierra la animación 3D primero
 

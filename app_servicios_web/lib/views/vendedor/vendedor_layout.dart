@@ -159,6 +159,7 @@ class _VendedorLayoutState extends State<VendedorLayout> {
             onClose: _toggleDrawer,
             isSeller: true,
             currentRoute: _activePage,
+            drawerOpen: _isDrawerOpen,
             onNavigate: (route) {
               _toggleDrawer();
               Future.delayed(const Duration(milliseconds: 300), () {
