@@ -144,6 +144,7 @@ class _UserLayoutState extends State<UserLayout> {
         return NotificacionesView(
           onIrAInicio: _irAInicio,
           onIrAMisCompras: _goToMisCompras,
+          onIrAColecciones: _irAColecciones,
         );
       case 'mis_opiniones':
         return MisOpinionesView(onIrAInicio: _irAInicio);

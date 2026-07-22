@@ -24,6 +24,8 @@ class VendedorLayout extends StatefulWidget {
 class _VendedorLayoutState extends State<VendedorLayout> {
   bool _isDrawerOpen = false;
   String _activePage = 'home';
+  /// Desde notificaciones: abrir Mis ventas en filtro de efectivo por activar.
+  bool _ventasAbrirActivarEfectivo = false;
 
   final _notificacionService = NotificacionService();
   int _noLeidas = 0;
@@ -89,13 +91,14 @@ class _VendedorLayoutState extends State<VendedorLayout> {
     }
   }
 
-  void _go(String page) {
+  void _go(String page, {bool activarEfectivo = false}) {
     setState(() {
       _activePage = page;
+      _ventasAbrirActivarEfectivo =
+          page == 'ventas' && activarEfectivo;
       if (_isDrawerOpen) _isDrawerOpen = false;
     });
     if (page == 'notificaciones') {
-      // Al abrir la bandeja, reconsultar conteo al volver se hace vía callback.
       _refrescarBadge();
     }
   }
@@ -115,13 +118,20 @@ class _VendedorLayoutState extends State<VendedorLayout> {
       case 'productos':
         return const ProductosView();
       case 'ventas':
-        return const VentasView();
+        return VentasView(
+          key: ValueKey('ventas_$_ventasAbrirActivarEfectivo'),
+          abrirActivarEfectivo: _ventasAbrirActivarEfectivo,
+        );
       case 'mi_tienda':
         return const TiendaView();
       case 'notificaciones':
         return NotificacionesView(
           esVendedor: true,
           onIrAMisVentas: () => _go('ventas'),
+          onIrAActivarEfectivo: () =>
+              _go('ventas', activarEfectivo: true),
+          onIrAProductos: () => _go('productos'),
+          onIrAInicio: () => _go('home'),
           onNoLeidasChanged: (n) {
             if (mounted) setState(() => _noLeidas = n);
           },

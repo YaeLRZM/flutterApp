@@ -20,7 +20,10 @@ enum _FiltroEstadoVenta {
 /// Mis ventas: misma entidad/API que las compras del comprador.
 /// Muestra contador de confirmación automática cuando está pendiente.
 class VentasView extends StatefulWidget {
-  const VentasView({super.key});
+  /// Si true, abre el filtro de pagos en efectivo por activar (desde notificaciones).
+  final bool abrirActivarEfectivo;
+
+  const VentasView({super.key, this.abrirActivarEfectivo = false});
 
   @override
   State<VentasView> createState() => _VentasViewState();
@@ -40,13 +43,23 @@ class _VentasViewState extends State<VentasView> {
   List<Venta> _ventas = [];
   int _count = 0;
   double _sumaTotales = 0;
-  _FiltroEstadoVenta _filtro = _FiltroEstadoVenta.todas;
+  late _FiltroEstadoVenta _filtro = widget.abrirActivarEfectivo
+      ? _FiltroEstadoVenta.activarEfectivo
+      : _FiltroEstadoVenta.todas;
   final Set<int> _busyActivateIds = {};
 
   /// Solo reconstruye textos de countdown (no toda la lista).
   final ValueNotifier<int> _clockTick = ValueNotifier<int>(0);
   Timer? _tick;
   Timer? _poll;
+
+  @override
+  void didUpdateWidget(covariant VentasView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.abrirActivarEfectivo && !oldWidget.abrirActivarEfectivo) {
+      setState(() => _filtro = _FiltroEstadoVenta.activarEfectivo);
+    }
+  }
 
   /// Aplica el filtro de UI sobre el listado real de la API.
   /// Estados vacíos/desconocidos solo aparecen en [todas].
