@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/categoria.dart';
+import 'product_image.dart';
 
 /// Tarjeta grande con imagen de fondo, degradado y textos, usada en
 /// `CollectionsView`. Es puramente presentacional: recibe ya resuelto
@@ -27,20 +28,25 @@ class CategoryCollectionCard extends StatelessWidget {
         height: 240,
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(12),
-          // TODO: API -> cuando `categoria.imagen` tenga una URL real,
-          // usar DecorationImage(image: NetworkImage(categoria.imagen!),
-          // fit: BoxFit.cover) en vez del color plano.
-          color: Colors.grey.shade300,
+          color: const Color(0xFFF3E5E8),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.1),
+              color: Colors.black.withValues(alpha: 0.1),
               blurRadius: 10,
               offset: const Offset(0, 4),
             ),
           ],
         ),
+        clipBehavior: Clip.antiAlias,
         child: Stack(
+          fit: StackFit.expand,
           children: [
+            ProductImage(
+              imageUrl: categoria.imagen,
+              width: double.infinity,
+              height: 240,
+              icon: Icons.grid_view_rounded,
+            ),
             // Degradado oscuro para que el texto sea legible.
             Container(
               decoration: BoxDecoration(
@@ -50,8 +56,8 @@ class CategoryCollectionCard extends StatelessWidget {
                   end: Alignment.bottomCenter,
                   colors: [
                     Colors.transparent,
-                    Colors.black.withOpacity(0.2),
-                    Colors.black.withOpacity(0.85),
+                    Colors.black.withValues(alpha: 0.2),
+                    Colors.black.withValues(alpha: 0.85),
                   ],
                   stops: const [0.4, 0.7, 1.0],
                 ),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/articulo.dart';
 import 'favorite_heart_button.dart';
+import 'product_image.dart';
 
 class CategoryProductCard extends StatelessWidget {
   final Articulo articulo;
@@ -47,15 +48,11 @@ class CategoryProductCard extends StatelessWidget {
               child: Stack(
                 children: [
                   Positioned.fill(
-                    child: articulo.imagenUrl.startsWith('http')
-                        ? Image.network(
-                            articulo.imagenUrl,
-                            fit: BoxFit.cover,
-                            width: double.infinity,
-                            errorBuilder: (_, __, ___) =>
-                                Container(color: Colors.grey.shade300),
-                          )
-                        : Container(color: Colors.grey.shade300),
+                    child: ProductImage(
+                      imageUrl: articulo.imagenUrl,
+                      width: double.infinity,
+                      height: double.infinity,
+                    ),
                   ),
                   if (articulo.tieneDescuento)
                     Positioned(

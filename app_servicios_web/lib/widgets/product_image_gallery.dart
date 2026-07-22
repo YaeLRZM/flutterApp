@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
 
+import 'product_image.dart';
+
 /// Galería de imágenes del detalle de producto: imagen principal grande
 /// con flechas + puntos de paginación, y una fila de miniaturas debajo.
-///
-/// Recibe una lista de "imágenes" (por ahora identificadores mock); el
-/// día que haya URLs reales solo hay que cambiar el `Container` gris de
-/// `_buildImageBox` por `Image.network(url, fit: BoxFit.cover)`.
+/// Usa [ProductImage] para no dejar espacios en blanco si falla la URL.
 class ProductImageGallery extends StatefulWidget {
   final List<String> imagenes;
 
@@ -31,8 +30,16 @@ class _ProductImageGalleryState extends State<ProductImageGallery> {
     super.dispose();
   }
 
+  List<String> get _urls {
+    final list = widget.imagenes
+        .map((u) => u.trim())
+        .where((u) => u.isNotEmpty)
+        .toList();
+    return list.isEmpty ? const [''] : list;
+  }
+
   void _next() {
-    if (_currentPage < widget.imagenes.length - 1) {
+    if (_currentPage < _urls.length - 1) {
       setState(() => _currentPage++);
       _controller.animateToPage(
         _currentPage,
@@ -53,38 +60,17 @@ class _ProductImageGalleryState extends State<ProductImageGallery> {
     }
   }
 
-  /// URL http(s) → red; mock:// u otra → placeholder gris (no rompe).
-  Widget _buildImageBox(String url, {BoxFit fit = BoxFit.cover}) {
-    final isNetwork =
-        url.startsWith('http://') || url.startsWith('https://');
-    if (!isNetwork) {
-      return Container(color: Colors.grey[300]);
-    }
-    return Image.network(
-      url,
-      fit: fit,
+  Widget _buildImageBox(String url) {
+    return ProductImage(
+      imageUrl: url,
       width: double.infinity,
       height: double.infinity,
-      // Seed Unsplash u otras URLs caídas: no dejar error visual en detalle.
-      errorBuilder: (_, __, ___) => Container(
-        color: Colors.grey[300],
-        alignment: Alignment.center,
-        child: const Icon(Icons.image_not_supported_outlined, color: Colors.black38),
-      ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    if (widget.imagenes.isEmpty) {
-      return Container(
-        height: 350,
-        decoration: BoxDecoration(
-          color: Colors.grey[300],
-          borderRadius: BorderRadius.circular(16),
-        ),
-      );
-    }
+    final urls = _urls;
 
     return Column(
       children: [
@@ -98,19 +84,19 @@ class _ProductImageGalleryState extends State<ProductImageGallery> {
                 width: double.infinity,
                 child: PageView.builder(
                   controller: _controller,
-                  itemCount: widget.imagenes.length,
+                  itemCount: urls.length,
                   onPageChanged: (i) => setState(() => _currentPage = i),
                   itemBuilder: (context, index) {
-                    return _buildImageBox(widget.imagenes[index]);
+                    return _buildImageBox(urls[index]);
                   },
                 ),
               ),
             ),
-            if (widget.imagenes.length > 1) ...[
+            if (urls.length > 1) ...[
               Positioned(
                 left: 10,
                 child: CircleAvatar(
-                  backgroundColor: Colors.white.withOpacity(0.5),
+                  backgroundColor: Colors.white.withValues(alpha: 0.5),
                   child: IconButton(
                     icon: const Icon(Icons.chevron_left, color: Colors.white),
                     onPressed: _prev,
@@ -120,7 +106,7 @@ class _ProductImageGalleryState extends State<ProductImageGallery> {
               Positioned(
                 right: 10,
                 child: CircleAvatar(
-                  backgroundColor: Colors.white.withOpacity(0.5),
+                  backgroundColor: Colors.white.withValues(alpha: 0.5),
                   child: IconButton(
                     icon: const Icon(Icons.chevron_right, color: Colors.white),
                     onPressed: _next,
@@ -130,7 +116,7 @@ class _ProductImageGalleryState extends State<ProductImageGallery> {
               Positioned(
                 bottom: 16,
                 child: Row(
-                  children: List.generate(widget.imagenes.length, (i) {
+                  children: List.generate(urls.length, (i) {
                     final bool active = i == _currentPage;
                     return Container(
                       margin: const EdgeInsets.symmetric(horizontal: 4),
@@ -147,11 +133,11 @@ class _ProductImageGalleryState extends State<ProductImageGallery> {
             ],
           ],
         ),
-        if (widget.imagenes.length > 1) ...[
+        if (urls.length > 1) ...[
           const SizedBox(height: 16),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: List.generate(widget.imagenes.length, (i) {
+            children: List.generate(urls.length, (i) {
               final bool selected = i == _currentPage;
               return GestureDetector(
                 onTap: () {
@@ -166,14 +152,13 @@ class _ProductImageGalleryState extends State<ProductImageGallery> {
                   width: 75,
                   height: 75,
                   decoration: BoxDecoration(
-                    color: Colors.grey[400],
                     borderRadius: BorderRadius.circular(12),
                     border: selected
                         ? Border.all(color: const Color(0xFFD81B60), width: 2)
                         : null,
                   ),
                   clipBehavior: Clip.antiAlias,
-                  child: _buildImageBox(widget.imagenes[i]),
+                  child: _buildImageBox(urls[i]),
                 ),
               );
             }),

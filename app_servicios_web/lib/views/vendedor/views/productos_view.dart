@@ -6,6 +6,7 @@ import '../../../services/api_service.dart';
 import '../../../services/articulo_service.dart';
 import '../../../services/categoria_service.dart';
 import '../../../widgets/app_ui.dart';
+import '../../../widgets/product_image.dart';
 import '../../user/views/product_detail_view.dart';
 
 /// Mis productos del vendedor: listado real + detalle + toggle disponible + edición mínima.
@@ -500,7 +501,6 @@ class _ProductosViewState extends State<ProductosView> {
     // Publicado/Oculto = campo disponible (no confundir con stock).
     final statusColor = a.disponible ? successColor : warningColor;
     final status = a.disponible ? 'Publicado' : 'Oculto';
-    final imageUrl = a.imagenUrl;
 
     return Material(
       color: Colors.white,
@@ -533,14 +533,11 @@ class _ProductosViewState extends State<ProductosView> {
                               0.2126, 0.7152, 0.0722, 0, 0,
                               0, 0, 0, 1, 0,
                             ]),
-                      child: imageUrl.startsWith('http')
-                          ? Image.network(
-                              imageUrl,
-                              fit: BoxFit.cover,
-                              errorBuilder: (_, __, ___) =>
-                                  Container(color: Colors.grey.shade300),
-                            )
-                          : Container(color: Colors.grey.shade300),
+                      child: ProductImage(
+                        imageUrl: a.imagenUrl,
+                        width: double.infinity,
+                        height: 200,
+                      ),
                     ),
                   ),
                 ),
@@ -1228,26 +1225,6 @@ class _ImagenUrlFieldState extends State<_ImagenUrlField> {
     return v.startsWith('http://') || v.startsWith('https://');
   }
 
-  Widget _placeholder(String message) {
-    return ColoredBox(
-      color: const Color(0xFFE8E8E8),
-      child: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.image_outlined, size: 36, color: Colors.black38),
-            const SizedBox(height: 6),
-            Text(
-              message,
-              textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 12, color: Colors.black45),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final url = widget.controller.text.trim();
@@ -1277,34 +1254,25 @@ class _ImagenUrlFieldState extends State<_ImagenUrlField> {
               height: 140,
               width: double.infinity,
               child: showNetwork
-                  ? Image.network(
-                      url,
-                      fit: BoxFit.cover,
+                  ? ProductImage(
+                      imageUrl: url,
                       width: double.infinity,
                       height: 140,
-                      errorBuilder: (_, __, ___) =>
-                          _placeholder('No se pudo cargar la imagen'),
-                      loadingBuilder: (context, child, progress) {
-                        if (progress == null) return child;
-                        return const ColoredBox(
-                          color: Color(0xFFE8E8E8),
-                          child: Center(
-                            child: SizedBox(
-                              width: 24,
-                              height: 24,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            ),
-                          ),
-                        );
-                      },
                     )
-                  : _placeholder(
-                      url.isEmpty
-                          ? 'Vista previa de la imagen'
-                          : 'URL debe empezar con http:// o https://',
+                  : ProductImagePlaceholder(
+                      width: double.infinity,
+                      height: 140,
                     ),
             ),
           ),
+          if (!showNetwork && url.isNotEmpty)
+            const Padding(
+              padding: EdgeInsets.only(top: 6),
+              child: Text(
+                'Escribe un enlace de imagen válido para ver la vista previa.',
+                style: TextStyle(fontSize: 11, color: Colors.black45),
+              ),
+            ),
         ],
       ),
     );

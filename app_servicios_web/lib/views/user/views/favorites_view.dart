@@ -9,6 +9,7 @@ import '../../../services/carrito_service.dart';
 import '../../../services/favoritos_service.dart';
 import '../../../widgets/app_ui.dart';
 import '../../../widgets/favorite_heart_button.dart';
+import '../../../widgets/product_image.dart';
 import 'product_detail_view.dart';
 
 /// Vista de Favoritos. Los artículos guardados viven en
@@ -282,14 +283,11 @@ class _FavoritesViewState extends State<FavoritesView> {
                 SizedBox(
                   height: 220,
                   width: double.infinity,
-                  child: articulo.imagenUrl.startsWith('http')
-                      ? Image.network(
-                          articulo.imagenUrl,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) =>
-                              ColoredBox(color: Colors.grey.shade300),
-                        )
-                      : ColoredBox(color: Colors.grey.shade300),
+                  child: ProductImage(
+                    imageUrl: articulo.imagenUrl,
+                    width: double.infinity,
+                    height: 220,
+                  ),
                 ),
                 Positioned(
                   top: 12,

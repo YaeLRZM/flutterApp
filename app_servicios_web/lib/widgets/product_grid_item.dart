@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/articulo.dart';
 import 'favorite_heart_button.dart';
+import 'product_image.dart';
 
 class ProductGridItem extends StatelessWidget {
   final Articulo articulo;
@@ -32,14 +33,11 @@ class ProductGridItem extends StatelessWidget {
             Expanded(
               child: Stack(
                 children: [
-                  Container(
-                    width: double.infinity,
-                    decoration: BoxDecoration(
-                      // TODO: API -> Image.network(articulo.imagenUrl)
-                      color: Colors.grey[300],
-                      borderRadius: const BorderRadius.vertical(
-                        top: Radius.circular(16),
-                      ),
+                  Positioned.fill(
+                    child: ProductImage(
+                      imageUrl: articulo.imagenUrl,
+                      width: double.infinity,
+                      height: double.infinity,
                     ),
                   ),
                   Positioned(

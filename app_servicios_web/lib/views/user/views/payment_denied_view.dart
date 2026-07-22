@@ -78,7 +78,7 @@ class PaymentDeniedView extends StatelessWidget {
                           elevation: 0,
                         ),
                         child: const Text(
-                          'Volver al checkout',
+                          'Volver a la compra',
                           style: TextStyle(
                             color: Colors.white,
                             fontWeight: FontWeight.bold,

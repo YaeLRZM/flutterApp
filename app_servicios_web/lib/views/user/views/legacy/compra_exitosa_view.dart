@@ -7,6 +7,7 @@ import 'package:confetti/confetti.dart';
 import '../../../../config/data_config.dart';
 import '../../../../models/articulo.dart';
 import '../../../../services/articulo_service.dart';
+import '../../../../widgets/product_image.dart';
 import '../../user_layout.dart';
 
 /// Vista final de "compra exitosa". Recibe los artículos comprados
@@ -374,6 +375,7 @@ class _CompraExitosaViewState extends State<CompraExitosaView> {
               articulo.nombre,
               _subtituloArticulo(articulo),
               '\$${(articulo.precioFinal * _cantidadDe(articulo.id)).toStringAsFixed(2)} MXN',
+              articulo.imagenUrl,
             ),
             const Divider(height: 32, color: Colors.black12),
           ],
@@ -468,19 +470,19 @@ class _CompraExitosaViewState extends State<CompraExitosaView> {
     return articulo.categoriaNombre;
   }
 
-  Widget _buildOrderItem(String title, String subtitle, String price) {
+  Widget _buildOrderItem(
+    String title,
+    String subtitle,
+    String price,
+    String imagenUrl,
+  ) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Container(
-          width: 60,
-          height: 60,
-          decoration: BoxDecoration(
-            // TODO: API -> Image.network(articulo.imagenUrl)
-            color: Colors.grey.shade200,
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: const Icon(Icons.image, color: Colors.white54),
+        ProductImage.thumb(
+          imageUrl: imagenUrl,
+          size: 60,
+          borderRadius: BorderRadius.circular(8),
         ),
         const SizedBox(width: 16),
         Expanded(

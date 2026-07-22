@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../models/articulo.dart';
 import '../models/cupon.dart';
 import 'favorite_heart_button.dart';
+import 'product_image.dart';
 
 class ProductCardLarge extends StatelessWidget {
   final Articulo articulo;
@@ -35,14 +36,11 @@ class ProductCardLarge extends StatelessWidget {
                 SizedBox(
                   height: 280,
                   width: double.infinity,
-                  child: articulo.imagenUrl.startsWith('http')
-                      ? Image.network(
-                          articulo.imagenUrl,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) =>
-                              Container(color: Colors.grey.shade300),
-                        )
-                      : Container(color: Colors.grey.shade300),
+                  child: ProductImage(
+                    imageUrl: articulo.imagenUrl,
+                    width: double.infinity,
+                    height: 280,
+                  ),
                 ),
                 if (articulo.vendidos >= 100)
                   Positioned(

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/articulo.dart';
 import 'countdown_timer.dart';
+import 'product_image.dart';
 
 class FlashSalesBox extends StatelessWidget {
   final List<Articulo> articulos;
@@ -56,10 +57,11 @@ class FlashSalesBox extends StatelessWidget {
       ),
       child: Row(
         children: [
-          ClipRRect(
+          ProductImage(
+            imageUrl: articulo.imagenUrl,
+            width: 60,
+            height: 60,
             borderRadius: BorderRadius.circular(8),
-            // TODO: API -> Image.network(articulo.imagenUrl)
-            child: Container(width: 60, height: 60, color: Colors.grey[300]),
           ),
           const SizedBox(width: 10),
           Column(

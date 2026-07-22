@@ -5,6 +5,7 @@ import '../../../services/api_service.dart';
 import '../../../services/articulo_service.dart';
 import '../../../widgets/app_ui.dart';
 import '../../../widgets/guest_auth_gate.dart';
+import '../../../widgets/product_image.dart';
 import 'payment_processing_view.dart';
 
 /// Checkout: resumen del carrito local + flujo de **pago simulado**.
@@ -283,14 +284,10 @@ class _CheckoutViewState extends State<CheckoutView> {
 
     return Row(
       children: [
-        Container(
-          width: 50,
-          height: 50,
-          decoration: BoxDecoration(
-            // TODO: API -> Image.network(articulo.imagenUrl)
-            color: Colors.grey[300],
-            borderRadius: BorderRadius.circular(12),
-          ),
+        ProductImage.thumb(
+          imageUrl: articulo.imagenUrl,
+          size: 50,
+          borderRadius: BorderRadius.circular(12),
         ),
         const SizedBox(width: 16),
         Expanded(

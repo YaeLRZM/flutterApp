@@ -5,6 +5,7 @@ import '../../../services/api_service.dart';
 import '../../../services/articulo_service.dart';
 import '../../../services/tienda_service.dart';
 import '../../../widgets/app_ui.dart';
+import '../../../widgets/product_image.dart';
 
 /// Mi tienda del vendedor: lectura real + edición mínima (nombre/descripción).
 class TiendaView extends StatefulWidget {
@@ -493,7 +494,6 @@ class _TiendaViewState extends State<TiendaView> {
   }
 
   Widget _buildFilaProducto(Articulo a) {
-    final hasImg = a.imagenUrl.startsWith('http');
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -509,20 +509,11 @@ class _TiendaViewState extends State<TiendaView> {
       ),
       child: Row(
         children: [
-          ClipRRect(
+          ProductImage(
+            imageUrl: a.imagenUrl,
+            width: 56,
+            height: 56,
             borderRadius: BorderRadius.circular(10),
-            child: SizedBox(
-              width: 56,
-              height: 56,
-              child: hasImg
-                  ? Image.network(
-                      a.imagenUrl,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) =>
-                          const ColoredBox(color: Color(0xFFE8E8E8)),
-                    )
-                  : const ColoredBox(color: Color(0xFFE8E8E8)),
-            ),
           ),
           const SizedBox(width: 12),
           Expanded(

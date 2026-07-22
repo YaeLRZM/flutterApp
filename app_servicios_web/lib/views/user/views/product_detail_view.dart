@@ -16,6 +16,7 @@ import '../../../widgets/app_ui.dart';
 import '../../../widgets/favorite_heart_button.dart';
 import '../../../widgets/guest_auth_gate.dart';
 import '../../../widgets/product_grid_item.dart';
+import '../../../widgets/product_image.dart';
 import '../../../widgets/product_image_gallery.dart';
 import 'checkout_view.dart';
 import 'public_catalog_entity_view.dart';
@@ -434,29 +435,67 @@ class _ProductDetailViewState extends State<ProductDetailView> {
   Widget _buildStoreChip(Articulo articulo) {
     final name = articulo.tiendaNombre.isNotEmpty
         ? articulo.tiendaNombre
-        : 'Ver tienda';
+        : 'Tienda';
+    final foto = ProductImage.isUsable(articulo.imagenUrl)
+        ? articulo.imagenUrl
+        : null;
+
     return InkWell(
       onTap: _abrirTienda,
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(14),
       child: Container(
         width: double.infinity,
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.black12),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: const Color(0xFFD81B60).withValues(alpha: 0.15),
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.03),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
         ),
         child: Row(
           children: [
-            const Icon(Icons.storefront_outlined, color: Color(0xFFD81B60)),
-            const SizedBox(width: 10),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(10),
+              child: ProductImage(
+                imageUrl: foto,
+                width: 44,
+                height: 44,
+                icon: Icons.storefront_outlined,
+                iconSize: 22,
+              ),
+            ),
+            const SizedBox(width: 12),
             Expanded(
-              child: Text(
-                name,
-                style: const TextStyle(
-                  fontWeight: FontWeight.w700,
-                  fontSize: 14,
-                ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'TIENDA',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 0.6,
+                      color: Color(0xFFD81B60),
+                    ),
+                  ),
+                  Text(
+                    name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 14,
+                    ),
+                  ),
+                ],
               ),
             ),
             const Text(
@@ -820,18 +859,40 @@ class _ProductDetailViewState extends State<ProductDetailView> {
 
   // --- 3. Tarjeta del artesano ---
   Widget _buildArtisanCard(Artesano artesano) {
+    final nombre = artesano.nombre.trim().isNotEmpty
+        ? artesano.nombre
+        : (_articulo?.artesanoNombre.trim().isNotEmpty == true
+            ? _articulo!.artesanoNombre
+            : 'Artesano');
+    final region = artesano.tieneRegion
+        ? artesano.region
+        : (_articulo?.region.trim().isNotEmpty == true &&
+                _articulo!.region.toUpperCase() != 'N/A'
+            ? _articulo!.region
+            : null);
+    final foto = artesano.tieneAvatar
+        ? artesano.avatarUrl
+        : (_articulo != null && ProductImage.isUsable(_articulo!.imagenUrl)
+            ? _articulo!.imagenUrl
+            : null);
+
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFFEef4fb),
+        color: const Color(0xFFF3E5E8),
         borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFD81B60).withValues(alpha: 0.12)),
       ),
       child: Row(
         children: [
-          CircleAvatar(
-            radius: 24,
-            backgroundColor: Colors.grey[400],
-            // TODO: API -> backgroundImage: NetworkImage(artesano.avatarUrl)
+          ClipOval(
+            child: ProductImage(
+              imageUrl: foto,
+              width: 52,
+              height: 52,
+              icon: Icons.volunteer_activism_outlined,
+              iconSize: 24,
+            ),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -839,7 +900,12 @@ class _ProductDetailViewState extends State<ProductDetailView> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  artesano.titulo.toUpperCase(),
+                  (artesano.tieneTitulo
+                          ? artesano.titulo
+                          : (artesano.tieneEspecialidad
+                              ? artesano.especialidad!
+                              : 'Artesano'))
+                      .toUpperCase(),
                   style: const TextStyle(
                     fontSize: 10,
                     fontWeight: FontWeight.w900,
@@ -848,27 +914,36 @@ class _ProductDetailViewState extends State<ProductDetailView> {
                   ),
                 ),
                 Text(
-                  artesano.nombre,
+                  nombre,
                   style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                Text(
-                  artesano.region,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.black.withOpacity(0.6),
+                if (region != null)
+                  Text(
+                    region,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.black.withValues(alpha: 0.6),
+                    ),
                   ),
-                ),
               ],
             ),
           ),
           if (artesano.verificado)
             const Icon(
-              Icons.verified_outlined,
+              Icons.verified,
               color: Color(0xFFD81B60),
-              size: 28,
+              size: 26,
+            )
+          else
+            const Icon(
+              Icons.chevron_right,
+              color: Color(0xFFD81B60),
+              size: 26,
             ),
         ],
       ),

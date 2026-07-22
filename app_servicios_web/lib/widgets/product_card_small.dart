@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/articulo.dart';
+import 'product_image.dart';
 
 class ProductCardSmall extends StatelessWidget {
   final Articulo articulo;
@@ -22,20 +23,11 @@ class ProductCardSmall extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            ClipRRect(
+            ProductImage(
+              imageUrl: articulo.imagenUrl,
+              width: 60,
+              height: 60,
               borderRadius: BorderRadius.circular(8),
-              child: SizedBox(
-                width: 60,
-                height: 60,
-                child: articulo.imagenUrl.startsWith('http')
-                    ? Image.network(
-                        articulo.imagenUrl,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) =>
-                            Container(color: Colors.grey[300]),
-                      )
-                    : Container(color: Colors.grey[300]),
-              ),
             ),
             const SizedBox(width: 12),
             Expanded(

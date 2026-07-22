@@ -9,6 +9,7 @@ import '../../../services/articulo_service.dart';
 import '../../../services/carrito_service.dart';
 import '../../../widgets/app_ui.dart';
 import '../../../widgets/guest_auth_gate.dart';
+import '../../../widgets/product_image.dart';
 import 'checkout_view.dart';
 import 'product_detail_view.dart';
 
@@ -383,22 +384,11 @@ class _CartViewState extends State<CartView> {
               child: SizedBox(
                 height: 140,
                 width: double.infinity,
-                child: articulo.imagenUrl.startsWith('http')
-                    ? Image.network(
-                        articulo.imagenUrl,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) =>
-                            ColoredBox(
-                          color: Colors.grey.shade300,
-                          child: const Center(
-                            child: Icon(
-                              Icons.image_not_supported_outlined,
-                              color: Colors.black38,
-                            ),
-                          ),
-                        ),
-                      )
-                    : ColoredBox(color: Colors.grey.shade300),
+                child: ProductImage(
+                  imageUrl: articulo.imagenUrl,
+                  width: double.infinity,
+                  height: 140,
+                ),
               ),
             ),
             Padding(
@@ -652,7 +642,7 @@ class _CartViewState extends State<CartView> {
                   Text(
                     _multiTienda
                         ? 'Ajusta tiendas para continuar'
-                        : 'Continuar a checkout',
+                        : 'Continuar con la compra',
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 14,
