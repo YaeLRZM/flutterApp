@@ -4,9 +4,11 @@ import 'package:flutter/material.dart';
 
 import '../../../models/venta.dart';
 import '../../../services/api_service.dart';
+import '../../../services/articulo_service.dart';
 import '../../../services/venta_service.dart';
 import '../../../widgets/app_ui.dart';
 import 'detalle_pedido_view.dart';
+import 'product_detail_view.dart';
 
 /// Historial de compras del usuario autenticado (GET /api/ventas).
 class MisComprasView extends StatefulWidget {
@@ -139,6 +141,39 @@ class _MisComprasViewState extends State<MisComprasView> {
       ),
     );
     if (mounted) _cargar();
+  }
+
+  /// Abre el detalle de la prenda comprada (artículo real de la línea).
+  Future<void> _abrirPrenda(DetalleVentaLinea line) async {
+    final id = line.articuloId;
+    if (id <= 0) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Producto no disponible')),
+      );
+      return;
+    }
+    try {
+      final art = await ArticuloService().fetchArticuloPorId(id);
+      if (!mounted) return;
+      if (art == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Producto no disponible')),
+        );
+        return;
+      }
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => ProductDetailView(articuloId: id),
+        ),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Producto no disponible')),
+      );
+    }
   }
 
   Future<void> _confirmarCancelar(Venta v) async {
@@ -324,6 +359,86 @@ class _MisComprasViewState extends State<MisComprasView> {
                 'Fecha: ${_fmtDate(v.createdAt)}',
                 style: const TextStyle(fontSize: 12, color: secondaryText),
               ),
+              if (v.estadoClave == 'completada') ...[
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE8F5E9),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0xFFA5D6A7)),
+                  ),
+                  child: const Text(
+                    'Compra realizada',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF2E7D32),
+                    ),
+                  ),
+                ),
+              ],
+              if (v.lineas.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                const Text(
+                  'Prendas de esta compra',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.black54,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                ...v.lineas.map((line) {
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 6),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            line.etiquetaArticulo,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 13,
+                              color: secondaryText,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        TextButton(
+                          style: TextButton.styleFrom(
+                            foregroundColor: bugambilia,
+                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                            minimumSize: const Size(0, 32),
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          ),
+                          onPressed: () {
+                            // Evitar que el InkWell de la tarjeta consuma el toque.
+                            _abrirPrenda(line);
+                          },
+                          child: const Text(
+                            'Ver prenda',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }),
+              ] else if (v.detalleCount > 0) ...[
+                const SizedBox(height: 8),
+                Text(
+                  '${v.detalleCount} prenda(s) · abre el detalle de la compra para verlas',
+                  style: const TextStyle(fontSize: 12, color: Colors.black45),
+                ),
+              ],
               if (v.debeMostrarContadorConfirmacion) ...[
                 const SizedBox(height: 10),
                 _CompraCountdownChip(venta: v),

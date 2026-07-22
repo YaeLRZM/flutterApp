@@ -6,6 +6,138 @@ import '../models/venta.dart';
 import 'api_service.dart';
 
 class VentaService {
+  /// Historial de un artículo: existe al menos una compra **completada**.
+  /// GET /api/mis-articulos-adquiridos/{articuloId}
+  ///
+  /// Una cancelada posterior NO oculta adquisición previa.
+  Future<({bool adquirido, bool enProceso})> fetchEstadoAdquisicionArticulo(
+    int articuloId, {
+    bool alreadyRetried = false,
+  }) async {
+    if (articuloId <= 0) {
+      return (adquirido: false, enProceso: false);
+    }
+
+    final headers =
+        await ApiService().getAuthHeaders(includeContentType: false);
+    final response = await http.get(
+      Uri.parse('${ApiService.baseUrl}/mis-articulos-adquiridos/$articuloId'),
+      headers: headers,
+    );
+
+    if (response.statusCode == 401) {
+      if (!alreadyRetried) {
+        final recovered = await ApiService().recoverFromUnauthorized();
+        if (recovered) {
+          return fetchEstadoAdquisicionArticulo(
+            articuloId,
+            alreadyRetried: true,
+          );
+        }
+      } else {
+        await ApiService().onUnauthorized();
+      }
+      throw Exception('Sesión expirada. Vuelve a iniciar sesión.');
+    }
+    if (response.statusCode == 403 || response.statusCode == 404) {
+      return (adquirido: false, enProceso: false);
+    }
+    if (response.statusCode != 200) {
+      throw Exception(
+        'No se pudo verificar la prenda (${response.statusCode})',
+      );
+    }
+
+    final decoded = jsonDecode(response.body);
+    if (decoded is! Map) {
+      return (adquirido: false, enProceso: false);
+    }
+    final map = Map<String, dynamic>.from(decoded);
+    final adquirido = map['adquirido'] == true;
+    // Si ya está adquirida, no confundir con “en proceso”.
+    final enProceso = !adquirido && map['en_proceso'] == true;
+    return (adquirido: adquirido, enProceso: enProceso);
+  }
+
+  /// Resultado de GET /api/mis-articulos-adquiridos (listado).
+  /// - [adquiridos]: existe >=1 compra **completada** del user
+  /// - [enProceso]: **pendiente** sin ninguna completada del mismo artículo
+  /// - canceladas no se listan; no borran el histórico de completadas
+  Future<({Set<int> adquiridos, Set<int> enProceso})>
+      fetchEstadoAdquisicionArticulos({
+    bool alreadyRetried = false,
+  }) async {
+    final headers =
+        await ApiService().getAuthHeaders(includeContentType: false);
+    final response = await http.get(
+      Uri.parse('${ApiService.baseUrl}/mis-articulos-adquiridos'),
+      headers: headers,
+    );
+
+    if (response.statusCode == 401) {
+      if (!alreadyRetried) {
+        final recovered = await ApiService().recoverFromUnauthorized();
+        if (recovered) {
+          return fetchEstadoAdquisicionArticulos(alreadyRetried: true);
+        }
+      } else {
+        await ApiService().onUnauthorized();
+      }
+      throw Exception('Sesión expirada. Vuelve a iniciar sesión.');
+    }
+    if (response.statusCode == 403) {
+      return (adquiridos: <int>{}, enProceso: <int>{});
+    }
+    if (response.statusCode != 200) {
+      throw Exception(
+        'No se pudo verificar prendas adquiridas (${response.statusCode})',
+      );
+    }
+
+    final decoded = jsonDecode(response.body);
+    final adquiridos = <int>{};
+    final enProceso = <int>{};
+
+    void addIds(dynamic raw, Set<int> out) {
+      if (raw is! List) return;
+      for (final e in raw) {
+        final id = e is int ? e : int.tryParse(e.toString());
+        if (id != null && id > 0) out.add(id);
+      }
+    }
+
+    if (decoded is Map) {
+      final data = decoded['data'];
+      final meta = decoded['meta'];
+      if (data is Map) {
+        addIds(data['adquiridos'], adquiridos);
+        addIds(data['en_proceso'], enProceso);
+      } else if (data is List) {
+        addIds(data, adquiridos);
+      }
+      // Siempre fusionar meta.articulo_ids (solo completadas).
+      if (meta is Map) {
+        addIds(meta['articulo_ids'], adquiridos);
+      }
+    } else if (decoded is List) {
+      addIds(decoded, adquiridos);
+    }
+
+    enProceso.removeAll(adquiridos);
+
+    return (adquiridos: adquiridos, enProceso: enProceso);
+  }
+
+  /// Solo IDs con al menos una compra **completada**.
+  Future<Set<int>> fetchArticulosAdquiridosIds({
+    bool alreadyRetried = false,
+  }) async {
+    final estado = await fetchEstadoAdquisicionArticulos(
+      alreadyRetried: alreadyRetried,
+    );
+    return estado.adquiridos;
+  }
+
   /// GET /api/ventas — ownership por rol:
   /// vendedor → su tienda; user → sus compras (user_id).
   Future<VentasListResult> fetchMisVentas({bool alreadyRetried = false}) async {
@@ -161,7 +293,22 @@ class VentaService {
       throw Exception('Datos de compra inválidos.');
     }
     if (response.statusCode != 201 && response.statusCode != 200) {
-      throw Exception('Error al registrar la compra (${response.statusCode})');
+      // Mensaje amable si el backend envía detalle controlado.
+      try {
+        final decoded = jsonDecode(response.body);
+        if (decoded is Map) {
+          final msg = decoded['message']?.toString() ??
+              decoded['mensaje']?.toString();
+          if (msg != null && msg.trim().isNotEmpty) {
+            throw Exception(msg.trim());
+          }
+        }
+      } catch (e) {
+        if (e is Exception && e.toString().startsWith('Exception:')) rethrow;
+      }
+      throw Exception(
+        'No se pudo registrar la compra. Intenta de nuevo.',
+      );
     }
 
     final decoded = jsonDecode(response.body);
@@ -172,7 +319,7 @@ class VentaService {
       map = Map<String, dynamic>.from(decoded['data'] as Map);
     }
     if (map == null) {
-      throw Exception('Respuesta de compra inválida');
+      throw Exception('No se pudo confirmar la compra. Intenta de nuevo.');
     }
     return Venta.fromJson(map);
   }

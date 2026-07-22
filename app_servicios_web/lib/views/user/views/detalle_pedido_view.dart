@@ -3,8 +3,10 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../../models/venta.dart';
+import '../../../services/articulo_service.dart';
 import '../../../services/venta_service.dart';
 import '../../../widgets/app_ui.dart';
+import 'product_detail_view.dart';
 
 /// Detalle de una compra del usuario (GET /api/ventas/{id}).
 class DetallePedidoView extends StatefulWidget {
@@ -314,6 +316,38 @@ class _DetallePedidoViewState extends State<DetallePedidoView> {
     );
   }
 
+  Future<void> _abrirPrenda(DetalleVentaLinea line) async {
+    final id = line.articuloId;
+    if (id <= 0) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Producto no disponible')),
+      );
+      return;
+    }
+    try {
+      final art = await ArticuloService().fetchArticuloPorId(id);
+      if (!mounted) return;
+      if (art == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Producto no disponible')),
+        );
+        return;
+      }
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => ProductDetailView(articuloId: id),
+        ),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Producto no disponible')),
+      );
+    }
+  }
+
   Widget _buildLinea(DetalleVentaLinea line) {
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
@@ -337,6 +371,21 @@ class _DetallePedidoViewState extends State<DetallePedidoView> {
           _row('Cantidad', '${line.cantidad}'),
           _row('Precio unitario', _fmtMoney(line.precioUnitario)),
           _row('Subtotal', _fmtMoney(line.subtotal)),
+          const SizedBox(height: 8),
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton.icon(
+              onPressed: () => _abrirPrenda(line),
+              icon: const Icon(Icons.checkroom_outlined, size: 16),
+              label: const Text(
+                'Ver prenda',
+                style: TextStyle(fontWeight: FontWeight.w700),
+              ),
+              style: TextButton.styleFrom(
+                foregroundColor: const Color(0xFFD81B60),
+              ),
+            ),
+          ),
         ],
       ),
     );

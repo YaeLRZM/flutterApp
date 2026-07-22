@@ -11,6 +11,7 @@ import '../../../services/artesano_service.dart';
 import '../../../services/carrito_service.dart';
 import '../../../services/favoritos_service.dart';
 import '../../../services/resena_service.dart';
+import '../../../services/venta_service.dart';
 import '../../../widgets/app_ui.dart';
 import '../../../widgets/favorite_heart_button.dart';
 import '../../../widgets/product_grid_item.dart';
@@ -33,6 +34,7 @@ class _ProductDetailViewState extends State<ProductDetailView> {
   final _artesanoService = ArtesanoService();
   final _imagenService = ArticuloImagenService();
   final _resenaService = ResenaService();
+  final _ventaService = VentaService();
 
   bool _loading = true;
   String? _error;
@@ -46,6 +48,10 @@ class _ProductDetailViewState extends State<ProductDetailView> {
   bool _loggedIn = false;
   /// Rol vendedor: no carrito, no compra, no reseñas (reglas de catálogo).
   bool _esVendedor = false;
+  /// Compra **completada** real del usuario que incluye este artículo.
+  bool _yaAdquirido = false;
+  /// Compra **pendiente** (sin completada) del mismo artículo.
+  bool _compraEnProceso = false;
 
   final _comentarioCtrl = TextEditingController();
   int _nuevaCalificacion = 5;
@@ -112,6 +118,24 @@ class _ProductDetailViewState extends State<ProductDetailView> {
         ),
       ]);
 
+      // Historial del artículo (no solo la última compra):
+      // adquirido <=> existe >=1 compra completada del usuario.
+      // Una cancelada posterior NO oculta el aviso.
+      var yaAdquirido = false;
+      var compraEnProceso = false;
+      if (token != null && !esVendedor) {
+        try {
+          final estado = await _ventaService.fetchEstadoAdquisicionArticulo(
+            articulo.id,
+          );
+          yaAdquirido = estado.adquirido;
+          compraEnProceso = !yaAdquirido && estado.enProceso;
+        } catch (_) {
+          yaAdquirido = false;
+          compraEnProceso = false;
+        }
+      }
+
       final resenas = results[2] as List<Resena>;
       ResenaResumen resumen;
       if (resenas.isEmpty) {
@@ -134,6 +158,8 @@ class _ProductDetailViewState extends State<ProductDetailView> {
         _masObrasDelArtesano = results[3] as List<Articulo>;
         _loggedIn = token != null;
         _esVendedor = esVendedor;
+        _yaAdquirido = yaAdquirido;
+        _compraEnProceso = compraEnProceso;
         _loading = false;
       });
     } catch (e) {
@@ -358,6 +384,26 @@ class _ProductDetailViewState extends State<ProductDetailView> {
             ],
             _buildDescription(articulo),
             const SizedBox(height: 24),
+            // Avisos solo con estado real de compra (nunca cancelada).
+            if (_yaAdquirido) ...[
+              _buildCompraBanner(
+                texto: 'Ya adquiriste esta prenda',
+                icon: Icons.check_circle_outline,
+                bg: const Color(0xFFE8F5E9),
+                border: const Color(0xFFC8E6C9),
+                fg: const Color(0xFF2E7D32),
+              ),
+              const SizedBox(height: 12),
+            ] else if (_compraEnProceso) ...[
+              _buildCompraBanner(
+                texto: 'Compra en proceso',
+                icon: Icons.hourglass_top_outlined,
+                bg: const Color(0xFFFFF3E0),
+                border: const Color(0xFFFFCC80),
+                fg: const Color(0xFFE65100),
+              ),
+              const SizedBox(height: 12),
+            ],
             _buildActionButtons(),
             const SizedBox(height: 24),
             _buildFeatureBadges(),
@@ -615,6 +661,42 @@ class _ProductDetailViewState extends State<ProductDetailView> {
           ),
         ),
       ],
+    );
+  }
+
+  /// Aviso discreto según estado real de compra del usuario.
+  Widget _buildCompraBanner({
+    required String texto,
+    required IconData icon,
+    required Color bg,
+    required Color border,
+    required Color fg,
+  }) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: border),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, size: 18, color: fg),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              texto,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: fg,
+                height: 1.3,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
