@@ -41,11 +41,11 @@ class _MisComprasViewState extends State<MisComprasView> {
     // Solo refresca UI del reloj; el cambio de estado lo decide el backend.
     _tick = Timer.periodic(const Duration(seconds: 1), (_) {
       if (!mounted) return;
-      final pendientes = _compras.where((c) => c.estadoClave == 'pendiente');
-      if (pendientes.isEmpty) return;
+      final conTimer =
+          _compras.where((c) => c.debeMostrarContadorConfirmacion);
+      if (conTimer.isEmpty) return;
       setState(() {});
-      // Al vencer el temporizador, pedir estado real al backend de inmediato.
-      if (pendientes.any((c) {
+      if (conTimer.any((c) {
         final left = c.tiempoRestanteAutoCompletar;
         return left != null && left == Duration.zero;
       })) {
@@ -123,11 +123,18 @@ class _MisComprasViewState extends State<MisComprasView> {
   Color _estadoColor(Venta v) {
     switch (v.estadoClave) {
       case 'pendiente':
+      case 'pendiente_activacion':
+      case 'listo_pagar':
         return const Color(0xFFE65100);
+      case 'pago_acreditado':
+        return const Color(0xFF1565C0);
+      case 'en_curso':
+        return const Color(0xFF6A1B9A);
+      case 'entregado':
+        return const Color(0xFF2E7D32);
       case 'cancelada':
+      case 'cancelado':
         return const Color(0xFF6D4C41);
-      case 'completada':
-        return bugambilia;
       default:
         return secondaryText;
     }
@@ -359,7 +366,12 @@ class _MisComprasViewState extends State<MisComprasView> {
                 'Fecha: ${_fmtDate(v.createdAt)}',
                 style: const TextStyle(fontSize: 12, color: secondaryText),
               ),
-              if (v.estadoClave == 'completada') ...[
+              const SizedBox(height: 4),
+              Text(
+                'Pago: ${v.metodoPagoEtiqueta}',
+                style: const TextStyle(fontSize: 12, color: secondaryText),
+              ),
+              if (v.estadoClave == 'entregado') ...[
                 const SizedBox(height: 8),
                 Container(
                   padding: const EdgeInsets.symmetric(
@@ -372,7 +384,7 @@ class _MisComprasViewState extends State<MisComprasView> {
                     border: Border.all(color: const Color(0xFFA5D6A7)),
                   ),
                   child: const Text(
-                    'Compra realizada',
+                    'Tu pedido fue entregado',
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w700,
@@ -380,6 +392,21 @@ class _MisComprasViewState extends State<MisComprasView> {
                     ),
                   ),
                 ),
+              ],
+              if (v.esperaActivacionVendedor) ...[
+                const SizedBox(height: 8),
+                const Text(
+                  'Esperando activación del vendedor',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFFE65100),
+                  ),
+                ),
+              ],
+              if (v.muestraCodigoBarras) ...[
+                const SizedBox(height: 8),
+                _CodigoBarrasMini(codigo: v.codigoBarras!),
               ],
               if (v.lineas.isNotEmpty) ...[
                 const SizedBox(height: 12),
@@ -470,8 +497,57 @@ class _MisComprasViewState extends State<MisComprasView> {
   }
 }
 
-/// Contador de auto-confirmación (misma fuente: auto_complete_at).
-/// Se repinta con el Timer del listado vía setState del padre.
+class _CodigoBarrasMini extends StatelessWidget {
+  final String codigo;
+
+  const _CodigoBarrasMini({required this.codigo});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFAFAFA),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: const Color(0xFFE0E0E0)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Código para pagar',
+            style: TextStyle(fontSize: 11, color: Colors.black54),
+          ),
+          const SizedBox(height: 6),
+          // Representación visual simple (simulación, no librería de escáner).
+          Row(
+            children: List.generate(28, (i) {
+              final h = 18.0 + (codigo.codeUnitAt(i % codigo.length) % 12);
+              return Container(
+                width: 2,
+                height: h,
+                margin: const EdgeInsets.only(right: 1.5),
+                color: Colors.black87,
+              );
+            }),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            codigo,
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.6,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Contador de auto-confirmación (next_state_at / auto_complete_at).
 class _CompraCountdownChip extends StatelessWidget {
   final Venta venta;
 

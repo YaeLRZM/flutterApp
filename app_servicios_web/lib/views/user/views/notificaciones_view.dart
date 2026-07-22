@@ -109,6 +109,8 @@ class _NotificacionesViewState extends State<NotificacionesView> {
     switch (tipo) {
       case 'compra_completada':
       case 'venta_completada':
+      case 'venta_entregada':
+      case 'pedido_entregado':
         return Icons.check_circle_outline;
       case 'compra_pendiente':
       case 'venta_pendiente':

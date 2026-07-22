@@ -13,12 +13,14 @@ class PaymentSuccessView extends StatelessWidget {
   final int ventaId;
   final double total;
   final String estado;
+  final String? mensaje;
 
   const PaymentSuccessView({
     super.key,
     required this.ventaId,
     required this.total,
-    this.estado = 'completada',
+    this.estado = 'entregado',
+    this.mensaje,
   });
 
   void _verDetalle(BuildContext context) {
@@ -42,12 +44,23 @@ class PaymentSuccessView extends StatelessWidget {
 
   String get _estadoLabel {
     switch (estado.trim().toLowerCase()) {
+      case 'pendiente_activacion':
+        return 'Pendiente de activación';
+      case 'listo_pagar':
+        return 'Listo para pagar';
+      case 'pago_acreditado':
+        return 'Pago acreditado';
+      case 'en_curso':
+        return 'En curso';
+      case 'entregado':
+        return 'Entregado';
       case 'pendiente':
         return 'Pendiente';
       case 'completada':
-        return 'Completada';
+        return 'Entregado';
       case 'cancelada':
-        return 'Cancelada';
+      case 'cancelado':
+        return 'Cancelado';
       default:
         final e = estado.trim();
         return e.isEmpty ? 'Pendiente' : e;
@@ -146,14 +159,16 @@ class PaymentSuccessView extends StatelessWidget {
                             ),
                           ),
                           const SizedBox(height: 8),
-                          const Text(
-                            'Tu compra quedó registrada como pendiente. '
-                            'Puedes cancelarla desde Mis compras mientras siga pendiente. '
-                            'Este fue un pago de prueba: no se cobró dinero real.',
+                          Text(
+                            mensaje?.trim().isNotEmpty == true
+                                ? '${mensaje!.trim()}\nPuedes seguir el avance en Mis compras. Este fue un pago de prueba: no se cobró dinero real.'
+                                : 'Puedes seguir el avance en Mis compras. '
+                                    'Este fue un pago de prueba: no se cobró dinero real.',
                             textAlign: TextAlign.center,
-                            style: TextStyle(
+                            style: const TextStyle(
                               fontSize: 11,
                               color: Colors.black45,
+                              height: 1.35,
                             ),
                           ),
                         ],

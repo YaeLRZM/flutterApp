@@ -90,16 +90,18 @@ class Venta {
   final int? formaPagoId;
   final double total;
   final String estado;
+  /// tarjeta | efectivo | vacío (legacy).
+  final String? metodoPago;
+  final String? codigoBarras;
   final DateTime? createdAt;
-  /// Momento en que el backend confirmará la compra (pendiente → completada).
+  /// Legacy: pendiente → entregado.
   final DateTime? autoCompleteAt;
+  /// Nuevo flujo: siguiente paso de estado (2 min).
+  final DateTime? nextStateAt;
   final int detalleCount;
   final List<DetalleVentaLinea> lineas;
 
-  /// `user.nombre` si el backend lo envía en el show.
   final String? userNombre;
-
-  /// `forma_pago.nombre` si el backend lo envía en el show.
   final String? formaPagoNombre;
 
   const Venta({
@@ -109,8 +111,11 @@ class Venta {
     this.formaPagoId,
     required this.total,
     required this.estado,
+    this.metodoPago,
+    this.codigoBarras,
     this.createdAt,
     this.autoCompleteAt,
+    this.nextStateAt,
     this.detalleCount = 0,
     this.lineas = const [],
     this.userNombre,
@@ -130,6 +135,8 @@ class Venta {
       }
     }
 
+    final metodo = json['metodo_pago']?.toString().trim().toLowerCase();
+
     return Venta(
       id: _asInt(json['id']),
       userId: _asInt(json['user_id']),
@@ -139,8 +146,11 @@ class Venta {
           : _asInt(json['forma_pago_id']),
       total: _asDouble(json['total']),
       estado: json['estado']?.toString() ?? '',
+      metodoPago: (metodo == null || metodo.isEmpty) ? null : metodo,
+      codigoBarras: json['codigo_barras']?.toString(),
       createdAt: _asDate(json['created_at']),
       autoCompleteAt: _asDate(json['auto_complete_at']),
+      nextStateAt: _asDate(json['next_state_at']),
       detalleCount: _asInt(
         json['detalle_ventas_count'] ??
             (lineas.isNotEmpty ? lineas.length : 0),
@@ -167,76 +177,153 @@ class Venta {
     return 'No disponible';
   }
 
-  /// Clave de estado normalizada (backend: pendiente|completada|cancelada).
+  /// Clave de estado normalizada (API real).
   String get estadoClave => estado.trim().toLowerCase();
 
-  /// Etiqueta legible para UI de producto.
+  String get metodoPagoClave => (metodoPago ?? '').trim().toLowerCase();
+
+  String get metodoPagoEtiqueta {
+    switch (metodoPagoClave) {
+      case 'tarjeta':
+        return 'Tarjeta';
+      case 'efectivo':
+        return 'Efectivo';
+      default:
+        return formaPagoNombre?.isNotEmpty == true
+            ? formaPagoNombre!
+            : 'No disponible';
+    }
+  }
+
+  /// Etiquetas de producto (sin jerga técnica).
   String get estadoEtiqueta {
     switch (estadoClave) {
+      case 'pendiente_activacion':
+        return 'Pendiente de activación';
+      case 'listo_pagar':
+        return 'Listo para pagar';
+      case 'pago_acreditado':
+        return 'Pago acreditado';
+      case 'en_curso':
+        return 'En curso';
+      case 'entregado':
+        return 'Entregado';
+      case 'cancelada':
+      case 'cancelado':
+        return 'Cancelado';
       case 'pendiente':
         return 'Pendiente';
       case 'completada':
-        return 'Completada';
-      case 'cancelada':
-        return 'Cancelada';
+        // Residuo de datos antiguos (migrados a entregado en BD).
+        return 'Entregado';
       default:
         final e = estado.trim();
         return e.isEmpty ? 'Sin estado' : e;
     }
   }
 
-  /// Solo compras pendientes se pueden cancelar (regla backend).
-  bool get sePuedeCancelar => estadoClave == 'pendiente';
+  /// Cancelable según estados del backend.
+  bool get sePuedeCancelar {
+    const ok = {
+      'pendiente',
+      'pendiente_activacion',
+      'listo_pagar',
+      'pago_acreditado',
+      'en_curso',
+    };
+    return ok.contains(estadoClave);
+  }
 
-  /// Hay temporizador de confirmación (pendiente + auto_complete_at).
-  bool get tieneTemporizadorConfirmacion =>
-      estadoClave == 'pendiente' && autoCompleteAt != null;
+  bool get esEfectivo => metodoPagoClave == 'efectivo';
+  bool get esTarjeta => metodoPagoClave == 'tarjeta';
 
-  /// Debe mostrarse el bloque de contador (solo depende del estado real).
-  bool get debeMostrarContadorConfirmacion => estadoClave == 'pendiente';
+  bool get muestraCodigoBarras =>
+      esEfectivo &&
+      codigoBarras != null &&
+      codigoBarras!.trim().isNotEmpty &&
+      estadoClave != 'pendiente_activacion' &&
+      estadoClave != 'cancelada' &&
+      estadoClave != 'cancelado';
 
-  /// Tiempo restante hasta auto-confirmación (null si no hay auto_complete_at).
+  bool get esperaActivacionVendedor =>
+      esEfectivo && estadoClave == 'pendiente_activacion';
+
+  bool get sePuedeActivarEfectivo =>
+      esEfectivo && estadoClave == 'pendiente_activacion';
+
+  /// Próximo avance automático (next_state_at o legacy auto_complete_at).
+  DateTime? get momentoProximoEstado {
+    if (nextStateAt != null) return nextStateAt;
+    if (estadoClave == 'pendiente') return autoCompleteAt;
+    return null;
+  }
+
+  bool get debeMostrarContadorConfirmacion {
+    final m = momentoProximoEstado;
+    if (m == null) return false;
+    const conTimer = {
+      'pendiente',
+      'listo_pagar',
+      'pago_acreditado',
+      'en_curso',
+    };
+    return conTimer.contains(estadoClave);
+  }
+
   Duration? get tiempoRestanteAutoCompletar {
-    if (estadoClave != 'pendiente' || autoCompleteAt == null) return null;
-    final target = autoCompleteAt!.toLocal();
-    final left = target.difference(DateTime.now());
+    final m = momentoProximoEstado;
+    if (m == null || !debeMostrarContadorConfirmacion) return null;
+    final left = m.toLocal().difference(DateTime.now());
     return left.isNegative ? Duration.zero : left;
   }
 
-  /// Reloj corto "M:SS" / "S s" para chip de UI (null si no hay fecha).
   String? get relojRestanteTexto {
     final left = tiempoRestanteAutoCompletar;
     if (left == null) return null;
     if (left == Duration.zero) return '0 s';
-    final m = left.inMinutes;
+    final min = left.inMinutes;
     final s = left.inSeconds % 60;
-    if (m > 0) return '$m:${s.toString().padLeft(2, '0')}';
+    if (min > 0) return '$min:${s.toString().padLeft(2, '0')}';
     return '$s s';
   }
 
-  /// Mensaje de reloj legible (misma verdad de datos; enfoque por rol).
-  /// Nunca devuelve vacío si estado == pendiente (fallback visible).
   String mensajeTiempoConfirmacion({bool esVendedor = false}) {
-    if (estadoClave != 'pendiente') return '';
+    if (!debeMostrarContadorConfirmacion) {
+      if (esperaActivacionVendedor) {
+        return esVendedor
+            ? 'Activa el pago en efectivo para generar el código.'
+            : 'Esperando activación del vendedor.';
+      }
+      return '';
+    }
 
     final left = tiempoRestanteAutoCompletar;
+    final nextLabel = switch (estadoClave) {
+      'listo_pagar' => 'pago acreditado',
+      'pago_acreditado' => 'en curso',
+      'en_curso' => 'entregado',
+      'pendiente' => 'confirmada',
+      _ => 'siguiente paso',
+    };
+
     if (left == null) {
-      // Pendiente sin auto_complete_at (legacy o parse fallido): no silenciar.
-      return 'Se completará automáticamente';
+      return esVendedor
+          ? 'Esta venta avanzará automáticamente.'
+          : 'Tu compra avanzará automáticamente.';
     }
     if (left == Duration.zero) {
       return esVendedor
-          ? 'Esta venta se está confirmando… se actualizará en un momento.'
-          : 'Tu compra se está confirmando… actualiza en un momento.';
+          ? 'Actualizando estado…'
+          : 'Tu compra se está actualizando…';
     }
-    final m = left.inMinutes;
+    final min = left.inMinutes;
     final s = left.inSeconds % 60;
-    final reloj = m > 0
-        ? '$m min ${s.toString().padLeft(2, '0')} s'
+    final reloj = min > 0
+        ? '$min min ${s.toString().padLeft(2, '0')} s'
         : '$s s';
     return esVendedor
-        ? 'Se confirmará automáticamente en aproximadamente $reloj.'
-        : 'Tu compra está en proceso y se confirmará en aproximadamente $reloj.';
+        ? 'Pasará a $nextLabel en aproximadamente $reloj.'
+        : 'Pasará a $nextLabel en aproximadamente $reloj.';
   }
 }
 

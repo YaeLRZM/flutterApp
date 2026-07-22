@@ -154,7 +154,7 @@ class _InformeVentasViewState extends State<InformeVentasView> {
       case _EstadoInforme.pendientes:
         return 'Pendientes';
       case _EstadoInforme.completadas:
-        return 'Completadas';
+        return 'Entregadas';
       case _EstadoInforme.canceladas:
         return 'Canceladas';
     }
@@ -188,7 +188,7 @@ class _InformeVentasViewState extends State<InformeVentasView> {
       case _EstadoInforme.pendientes:
         return v.estadoClave == 'pendiente';
       case _EstadoInforme.completadas:
-        return v.estadoClave == 'completada';
+        return v.estadoClave == 'entregado';
       case _EstadoInforme.canceladas:
         return v.estadoClave == 'cancelada';
     }
@@ -201,7 +201,7 @@ class _InformeVentasViewState extends State<InformeVentasView> {
   }
 
   int get _nCompletadas =>
-      _filtradas.where((v) => v.estadoClave == 'completada').length;
+      _filtradas.where((v) => v.estadoClave == 'entregado').length;
 
   int get _nPendientes =>
       _filtradas.where((v) => v.estadoClave == 'pendiente').length;
@@ -209,9 +209,9 @@ class _InformeVentasViewState extends State<InformeVentasView> {
   int get _nCanceladas =>
       _filtradas.where((v) => v.estadoClave == 'cancelada').length;
 
-  /// Solo ventas completadas del filtro actual.
+  /// Solo ventas entregadas del filtro actual.
   double get _totalVendido => _filtradas
-      .where((v) => v.estadoClave == 'completada')
+      .where((v) => v.estadoClave == 'entregado')
       .fold<double>(0, (acc, v) => acc + v.total);
 
   int get _ventasEfectivas => _nCompletadas;
@@ -268,14 +268,14 @@ class _InformeVentasViewState extends State<InformeVentasView> {
               style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold),
             ),
             pw.SizedBox(height: 6),
-            pw.Text('Ventas completadas: $_nCompletadas'),
+            pw.Text('Ventas entregadas: $_nCompletadas'),
             pw.Text('Ventas pendientes: $_nPendientes'),
             pw.Text('Ventas canceladas: $_nCanceladas'),
             pw.Text(
-              'Ventas efectivas (completadas): $_ventasEfectivas',
+              'Ventas efectivas (entregadas): $_ventasEfectivas',
             ),
             pw.Text(
-              'Total vendido (solo completadas): ${_fmtMoney(_totalVendido)}',
+              'Total vendido (solo entregadas): ${_fmtMoney(_totalVendido)}',
             ),
             if (_articulosTotal > 0) ...[
               pw.Text('Artículos en catálogo: $_articulosTotal'),
@@ -330,7 +330,7 @@ class _InformeVentasViewState extends State<InformeVentasView> {
               ),
             pw.SizedBox(height: 12),
             pw.Text(
-              'Nota: el total vendido solo incluye ventas con estado Completada. '
+              'Nota: el total vendido solo incluye ventas con estado Entregado. '
               'Las canceladas y pendientes no se suman a ese total.',
               style: const pw.TextStyle(fontSize: 9, color: PdfColors.grey700),
             ),
@@ -473,7 +473,7 @@ class _InformeVentasViewState extends State<InformeVentasView> {
                 () => setState(() => _estado = _EstadoInforme.pendientes),
               ),
               _chip(
-                'Completadas',
+                'Entregadas',
                 _estado == _EstadoInforme.completadas,
                 () => setState(() => _estado = _EstadoInforme.completadas),
               ),
@@ -497,7 +497,7 @@ class _InformeVentasViewState extends State<InformeVentasView> {
             children: [
               Expanded(
                 child: _metricTile(
-                  'Completadas',
+                  'Entregadas',
                   '$_nCompletadas',
                   const Color(0xFF2E7D32),
                 ),
@@ -534,7 +534,7 @@ class _InformeVentasViewState extends State<InformeVentasView> {
           ),
           const SizedBox(height: 10),
           _metricTile(
-            'Total vendido (solo completadas)',
+            'Total vendido (solo entregadas)',
             _fmtMoney(_totalVendido),
             const Color(0xFF1565C0),
             wide: true,
@@ -692,11 +692,14 @@ class _InformeVentasViewState extends State<InformeVentasView> {
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w700,
-                  color: v.estadoClave == 'completada'
+                  color: v.estadoClave == 'entregado'
                       ? const Color(0xFF2E7D32)
-                      : v.estadoClave == 'pendiente'
+                      : v.estadoClave == 'pendiente' ||
+                              v.estadoClave == 'pendiente_activacion' ||
+                              v.estadoClave == 'listo_pagar'
                           ? const Color(0xFFE65100)
-                          : v.estadoClave == 'cancelada'
+                          : v.estadoClave == 'cancelada' ||
+                                  v.estadoClave == 'cancelado'
                               ? const Color(0xFF6D4C41)
                               : secondaryText,
                 ),

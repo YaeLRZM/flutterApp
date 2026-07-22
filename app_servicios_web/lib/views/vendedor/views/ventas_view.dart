@@ -6,9 +6,16 @@ import '../../../models/venta.dart';
 import '../../../services/venta_service.dart';
 import '../../../widgets/app_ui.dart';
 
-/// Filtro de listado: solo estados reales de la API (pendiente|completada|cancelada).
+/// Filtro de listado: estados reales del flujo de pago simulado.
 /// [todas] incluye también estados vacíos o desconocidos.
-enum _FiltroEstadoVenta { todas, pendientes, completadas, canceladas }
+enum _FiltroEstadoVenta {
+  todas,
+  pendientes,
+  activarEfectivo,
+  enCurso,
+  entregadas,
+  canceladas,
+}
 
 /// Mis ventas: misma entidad/API que las compras del comprador.
 /// Muestra contador de confirmación automática cuando está pendiente.
@@ -34,6 +41,7 @@ class _VentasViewState extends State<VentasView> {
   int _count = 0;
   double _sumaTotales = 0;
   _FiltroEstadoVenta _filtro = _FiltroEstadoVenta.todas;
+  final Set<int> _busyActivateIds = {};
 
   /// Solo reconstruye textos de countdown (no toda la lista).
   final ValueNotifier<int> _clockTick = ValueNotifier<int>(0);
@@ -47,11 +55,29 @@ class _VentasViewState extends State<VentasView> {
       case _FiltroEstadoVenta.todas:
         return _ventas;
       case _FiltroEstadoVenta.pendientes:
-        return _ventas.where((v) => v.estadoClave == 'pendiente').toList();
-      case _FiltroEstadoVenta.completadas:
-        return _ventas.where((v) => v.estadoClave == 'completada').toList();
+        return _ventas
+            .where(
+              (v) =>
+                  v.estadoClave == 'pendiente' ||
+                  v.estadoClave == 'pendiente_activacion' ||
+                  v.estadoClave == 'listo_pagar' ||
+                  v.estadoClave == 'pago_acreditado',
+            )
+            .toList();
+      case _FiltroEstadoVenta.activarEfectivo:
+        return _ventas.where((v) => v.sePuedeActivarEfectivo).toList();
+      case _FiltroEstadoVenta.enCurso:
+        return _ventas.where((v) => v.estadoClave == 'en_curso').toList();
+      case _FiltroEstadoVenta.entregadas:
+        return _ventas.where((v) => v.estadoClave == 'entregado').toList();
       case _FiltroEstadoVenta.canceladas:
-        return _ventas.where((v) => v.estadoClave == 'cancelada').toList();
+        return _ventas
+            .where(
+              (v) =>
+                  v.estadoClave == 'cancelada' ||
+                  v.estadoClave == 'cancelado',
+            )
+            .toList();
     }
   }
 
@@ -60,14 +86,28 @@ class _VentasViewState extends State<VentasView> {
   double get _sumaFiltrada =>
       _ventasFiltradas.fold<double>(0, (acc, v) => acc + v.total);
 
-  int get _nPendientes =>
-      _ventas.where((v) => v.estadoClave == 'pendiente').length;
+  int get _nPendientes => _ventas
+      .where(
+        (v) =>
+            v.estadoClave == 'pendiente' ||
+            v.estadoClave == 'pendiente_activacion' ||
+            v.estadoClave == 'listo_pagar' ||
+            v.estadoClave == 'pago_acreditado',
+      )
+      .length;
 
-  int get _nCompletadas =>
-      _ventas.where((v) => v.estadoClave == 'completada').length;
+  int get _nActivarEfectivo =>
+      _ventas.where((v) => v.sePuedeActivarEfectivo).length;
 
-  int get _nCanceladas =>
-      _ventas.where((v) => v.estadoClave == 'cancelada').length;
+  int get _nEntregadas =>
+      _ventas.where((v) => v.estadoClave == 'entregado').length;
+
+  int get _nCanceladas => _ventas
+      .where(
+        (v) =>
+            v.estadoClave == 'cancelada' || v.estadoClave == 'cancelado',
+      )
+      .length;
 
   @override
   void initState() {
@@ -76,11 +116,11 @@ class _VentasViewState extends State<VentasView> {
     // Countdown y auto-refresh usan el listado completo (no el filtrado).
     _tick = Timer.periodic(const Duration(seconds: 1), (_) {
       if (!mounted) return;
-      final pendientes = _ventas.where((v) => v.estadoClave == 'pendiente');
-      if (pendientes.isEmpty) return;
+      final conTimer =
+          _ventas.where((v) => v.debeMostrarContadorConfirmacion);
+      if (conTimer.isEmpty) return;
       _clockTick.value = _clockTick.value + 1;
-      // Al vencer auto_complete_at, reconsultar ya (index ejecuta completarVencidas).
-      if (pendientes.any((v) {
+      if (conTimer.any((v) {
         final left = v.tiempoRestanteAutoCompletar;
         return left != null && left == Duration.zero;
       })) {
@@ -139,13 +179,45 @@ class _VentasViewState extends State<VentasView> {
   Color _estadoColor(String estado) {
     switch (estado.toLowerCase().trim()) {
       case 'pendiente':
+      case 'pendiente_activacion':
+      case 'listo_pagar':
         return const Color(0xFFE65100);
+      case 'pago_acreditado':
+        return const Color(0xFF1565C0);
+      case 'en_curso':
+        return const Color(0xFF6A1B9A);
       case 'cancelada':
+      case 'cancelado':
         return const Color(0xFF6D4C41);
-      case 'completada':
+      case 'entregado':
         return const Color(0xFF2ECC71);
       default:
         return secondaryText;
+    }
+  }
+
+  Future<void> _activarEfectivo(Venta v) async {
+    if (_busyActivateIds.contains(v.id)) return;
+    setState(() => _busyActivateIds.add(v.id));
+    try {
+      await _ventaService.activarEfectivo(v.id);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Pago en efectivo activado. El código ya está listo.'),
+        ),
+      );
+      await _cargar(silencioso: true);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.toString().replaceFirst('Exception: ', '')),
+          backgroundColor: Colors.red.shade700,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _busyActivateIds.remove(v.id));
     }
   }
 
@@ -218,17 +290,25 @@ class _VentasViewState extends State<VentasView> {
                 ),
                 const SizedBox(width: 8),
                 _filtroChip(
-                  label: 'Pendientes ($_nPendientes)',
+                  label: 'En proceso ($_nPendientes)',
                   selected: _filtro == _FiltroEstadoVenta.pendientes,
                   onTap: () =>
                       setState(() => _filtro = _FiltroEstadoVenta.pendientes),
                 ),
                 const SizedBox(width: 8),
                 _filtroChip(
-                  label: 'Completadas ($_nCompletadas)',
-                  selected: _filtro == _FiltroEstadoVenta.completadas,
+                  label: 'Activar efectivo ($_nActivarEfectivo)',
+                  selected: _filtro == _FiltroEstadoVenta.activarEfectivo,
+                  onTap: () => setState(
+                    () => _filtro = _FiltroEstadoVenta.activarEfectivo,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                _filtroChip(
+                  label: 'Entregadas ($_nEntregadas)',
+                  selected: _filtro == _FiltroEstadoVenta.entregadas,
                   onTap: () =>
-                      setState(() => _filtro = _FiltroEstadoVenta.completadas),
+                      setState(() => _filtro = _FiltroEstadoVenta.entregadas),
                 ),
                 const SizedBox(width: 8),
                 _filtroChip(
@@ -279,10 +359,10 @@ class _VentasViewState extends State<VentasView> {
             AppEmptyView(
               icon: Icons.filter_list_off_outlined,
               title: 'No hay ventas con este estado.',
-              subtitle: _filtro == _FiltroEstadoVenta.pendientes
-                  ? 'No tienes ventas pendientes en este momento.'
-                  : _filtro == _FiltroEstadoVenta.completadas
-                      ? 'Aún no hay ventas completadas.'
+              subtitle: _filtro == _FiltroEstadoVenta.activarEfectivo
+                  ? 'No hay pagos en efectivo por activar.'
+                  : _filtro == _FiltroEstadoVenta.entregadas
+                      ? 'Aún no hay ventas entregadas.'
                       : _filtro == _FiltroEstadoVenta.canceladas
                           ? 'No hay ventas canceladas.'
                           : 'Prueba otro filtro o recarga la lista.',
@@ -460,7 +540,6 @@ class _VentasViewState extends State<VentasView> {
                   color: bugambilia,
                 ),
               ),
-              // Contador: solo estado real pendiente (misma verdad que comprador).
               if (v.debeMostrarContadorConfirmacion) ...[
                 const SizedBox(height: 10),
                 _VentaCountdownChip(
@@ -469,15 +548,57 @@ class _VentasViewState extends State<VentasView> {
                   esVendedor: true,
                 ),
               ],
+              if (v.esperaActivacionVendedor) ...[
+                const SizedBox(height: 8),
+                const Text(
+                  'Pago en efectivo: espera tu activación',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFFE65100),
+                  ),
+                ),
+              ],
               const SizedBox(height: 10),
               _kv('Fecha', _fmtDate(v.createdAt)),
               if (v.userId > 0) _kv('Cliente', 'Cliente #${v.userId}'),
+              _kv('Pago', v.metodoPagoEtiqueta),
               _kv(
                 'Artículos',
                 v.detalleCount > 0 ? '${v.detalleCount}' : '0',
               ),
               if (v.formaPagoId != null && v.formaPagoId! > 0)
                 _kv('Forma de pago', v.etiquetaFormaPago),
+              if (v.sePuedeActivarEfectivo) ...[
+                const SizedBox(height: 10),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: _busyActivateIds.contains(v.id)
+                        ? null
+                        : () => _activarEfectivo(v),
+                    icon: _busyActivateIds.contains(v.id)
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Icon(Icons.qr_code_2, size: 18),
+                    label: Text(
+                      _busyActivateIds.contains(v.id)
+                          ? 'Activando…'
+                          : 'Activar pago en efectivo',
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: bugambilia,
+                      foregroundColor: Colors.white,
+                    ),
+                  ),
+                ),
+              ],
               const SizedBox(height: 4),
               const Text(
                 'Toca para ver detalle',
@@ -547,14 +668,18 @@ class _VentaDetalleSheetState extends State<_VentaDetalleSheet> {
     _cargar();
     _poll = Timer.periodic(const Duration(seconds: 15), (_) {
       if (!mounted || _reloading) return;
-      if (_venta?.estadoClave == 'pendiente') {
-        _cargar(silencioso: true);
+      final e = _venta?.estadoClave;
+      if (e == null ||
+          e == 'entregado' ||
+          e == 'cancelada' ||
+          e == 'cancelado') {
+        return;
       }
+      _cargar(silencioso: true);
     });
-    // Si el reloj local llega a 0, forzar GET (show también completa vencidas).
     _expireWatch = Timer.periodic(const Duration(seconds: 1), (_) {
       if (!mounted || _reloading) return;
-      if (_venta?.estadoClave != 'pendiente') return;
+      if (_venta?.debeMostrarContadorConfirmacion != true) return;
       final left = _venta?.tiempoRestanteAutoCompletar;
       if (left != null && left == Duration.zero) {
         _cargar(silencioso: true);

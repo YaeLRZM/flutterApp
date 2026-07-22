@@ -37,19 +37,23 @@ class _DetallePedidoViewState extends State<DetallePedidoView> {
     _cargar();
     _tick = Timer.periodic(const Duration(seconds: 1), (_) {
       if (!mounted) return;
-      if (_venta?.estadoClave != 'pendiente') return;
+      if (_venta?.debeMostrarContadorConfirmacion != true) return;
       setState(() {});
       final left = _venta?.tiempoRestanteAutoCompletar;
       if (left != null && left == Duration.zero) {
         _cargar(silencioso: true);
       }
     });
-    // Misma fuente de verdad que el listado: GET detalle dispara completarVencidas.
     _poll = Timer.periodic(const Duration(seconds: 15), (_) {
       if (!mounted || _reloading) return;
-      if (_venta?.estadoClave == 'pendiente') {
-        _cargar(silencioso: true);
+      final e = _venta?.estadoClave;
+      if (e == null ||
+          e == 'entregado' ||
+          e == 'cancelada' ||
+          e == 'cancelado') {
+        return;
       }
+      _cargar(silencioso: true);
     });
   }
 
@@ -207,10 +211,81 @@ class _DetallePedidoViewState extends State<DetallePedidoView> {
                 _row('Estado', v.estadoEtiqueta),
                 _row('Total', _fmtMoney(v.total)),
                 _row('Fecha', _fmtDate(v.createdAt)),
+                _row('Método de pago', v.metodoPagoEtiqueta),
                 _row('Forma de pago', v.etiquetaFormaPago),
               ],
             ),
           ),
+          if (v.esperaActivacionVendedor) ...[
+            const SizedBox(height: 12),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFF3E0),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFFFCC80)),
+              ),
+              child: const Text(
+                'Esperando activación del vendedor. '
+                'Cuando active el pago podrás ver el código para pagar.',
+                style: TextStyle(
+                  fontSize: 13,
+                  height: 1.35,
+                  color: Color(0xFFE65100),
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+          if (v.muestraCodigoBarras) ...[
+            const SizedBox(height: 12),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFE0E0E0)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Código para pagar',
+                    style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: List.generate(36, (i) {
+                      final code = v.codigoBarras!;
+                      final h =
+                          22.0 + (code.codeUnitAt(i % code.length) % 14);
+                      return Container(
+                        width: 2.2,
+                        height: h,
+                        margin: const EdgeInsets.only(right: 1.5),
+                        color: Colors.black87,
+                      );
+                    }),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    v.codigoBarras!,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.8,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  const Text(
+                    'Ya puedes realizar tu pago (simulación).',
+                    style: TextStyle(fontSize: 12, color: Colors.black54),
+                  ),
+                ],
+              ),
+            ),
+          ],
           if (v.debeMostrarContadorConfirmacion) ...[
             const SizedBox(height: 12),
             Container(
@@ -284,10 +359,10 @@ class _DetallePedidoViewState extends State<DetallePedidoView> {
               'Esta compra ya fue cancelada. Los artículos se liberaron.',
               style: TextStyle(fontSize: 12, color: Colors.black45, height: 1.35),
             ),
-          ] else if (v.estadoClave == 'completada') ...[
+          ] else if (v.estadoClave == 'entregado') ...[
             const SizedBox(height: 12),
             const Text(
-              'Esta compra ya está confirmada y no se puede cancelar.',
+              'Tu pedido fue entregado y no se puede cancelar.',
               style: TextStyle(fontSize: 12, color: Colors.black45, height: 1.35),
             ),
           ],

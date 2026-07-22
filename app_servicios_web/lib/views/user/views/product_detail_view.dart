@@ -48,9 +48,9 @@ class _ProductDetailViewState extends State<ProductDetailView> {
   bool _loggedIn = false;
   /// Rol vendedor: no carrito, no compra, no reseñas (reglas de catálogo).
   bool _esVendedor = false;
-  /// Compra **completada** real del usuario que incluye este artículo.
+  /// Compra **entregada** real del usuario que incluye este artículo.
   bool _yaAdquirido = false;
-  /// Compra **pendiente** (sin completada) del mismo artículo.
+  /// Compra en curso (sin entrega final) del mismo artículo.
   bool _compraEnProceso = false;
 
   final _comentarioCtrl = TextEditingController();
@@ -119,7 +119,7 @@ class _ProductDetailViewState extends State<ProductDetailView> {
       ]);
 
       // Historial del artículo (no solo la última compra):
-      // adquirido <=> existe >=1 compra completada del usuario.
+      // adquirido <=> existe >=1 compra entregada del usuario.
       // Una cancelada posterior NO oculta el aviso.
       var yaAdquirido = false;
       var compraEnProceso = false;

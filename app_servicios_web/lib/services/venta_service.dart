@@ -6,7 +6,7 @@ import '../models/venta.dart';
 import 'api_service.dart';
 
 class VentaService {
-  /// Historial de un artículo: existe al menos una compra **completada**.
+  /// Historial de un artículo: existe al menos una compra **entregada**.
   /// GET /api/mis-articulos-adquiridos/{articuloId}
   ///
   /// Una cancelada posterior NO oculta adquisición previa.
@@ -60,9 +60,9 @@ class VentaService {
   }
 
   /// Resultado de GET /api/mis-articulos-adquiridos (listado).
-  /// - [adquiridos]: existe >=1 compra **completada** del user
-  /// - [enProceso]: **pendiente** sin ninguna completada del mismo artículo
-  /// - canceladas no se listan; no borran el histórico de completadas
+  /// - [adquiridos]: existe >=1 compra **entregada** del user
+  /// - [enProceso]: en curso sin ninguna entregada del mismo artículo
+  /// - canceladas no se listan; no borran el histórico de entregadas
   Future<({Set<int> adquiridos, Set<int> enProceso})>
       fetchEstadoAdquisicionArticulos({
     bool alreadyRetried = false,
@@ -115,7 +115,7 @@ class VentaService {
       } else if (data is List) {
         addIds(data, adquiridos);
       }
-      // Siempre fusionar meta.articulo_ids (solo completadas).
+      // Siempre fusionar meta.articulo_ids (solo entregadas).
       if (meta is Map) {
         addIds(meta['articulo_ids'], adquiridos);
       }
@@ -128,7 +128,7 @@ class VentaService {
     return (adquiridos: adquiridos, enProceso: enProceso);
   }
 
-  /// Solo IDs con al menos una compra **completada**.
+  /// Solo IDs con al menos una compra **entregada**.
   Future<Set<int>> fetchArticulosAdquiridosIds({
     bool alreadyRetried = false,
   }) async {
@@ -220,6 +220,8 @@ class VentaService {
   Future<Venta> crearCompra({
     required Map<int, int> items,
     int? formaPagoId,
+    /// tarjeta | efectivo (simulación).
+    String? metodoPago,
     bool alreadyRetried = false,
   }) async {
     if (await ApiService().isVendedor()) {
@@ -241,9 +243,11 @@ class VentaService {
       throw Exception('No hay artículos válidos para comprar.');
     }
 
+    final metodo = metodoPago?.trim().toLowerCase();
     final body = <String, dynamic>{
       'items': payloadItems,
       if (formaPagoId != null) 'forma_pago_id': formaPagoId,
+      if (metodo == 'tarjeta' || metodo == 'efectivo') 'metodo_pago': metodo,
     };
 
     final headers = await ApiService().getAuthHeaders();
@@ -260,6 +264,7 @@ class VentaService {
           return crearCompra(
             items: items,
             formaPagoId: formaPagoId,
+            metodoPago: metodoPago,
             alreadyRetried: true,
           );
         }
@@ -378,6 +383,56 @@ class VentaService {
     }
     if (map == null) {
       throw Exception('Respuesta de cancelación inválida');
+    }
+    return Venta.fromJson(map);
+  }
+
+  /// Vendedor activa pago en efectivo: POST /api/ventas/{id}/activar-efectivo
+  Future<Venta> activarEfectivo(int id, {bool alreadyRetried = false}) async {
+    final headers = await ApiService().getAuthHeaders();
+    final response = await http.post(
+      Uri.parse('${ApiService.baseUrl}/ventas/$id/activar-efectivo'),
+      headers: headers,
+      body: '{}',
+    );
+
+    if (response.statusCode == 401) {
+      if (!alreadyRetried) {
+        final recovered = await ApiService().recoverFromUnauthorized();
+        if (recovered) return activarEfectivo(id, alreadyRetried: true);
+      } else {
+        await ApiService().onUnauthorized();
+      }
+      throw Exception('Sesión expirada. Vuelve a iniciar sesión.');
+    }
+    if (response.statusCode == 403) {
+      throw Exception('No puedes activar esta compra.');
+    }
+    if (response.statusCode == 422) {
+      try {
+        final decoded = jsonDecode(response.body);
+        if (decoded is Map) {
+          final msg = decoded['message']?.toString();
+          if (msg != null && msg.isNotEmpty) throw Exception(msg);
+        }
+      } catch (e) {
+        if (e is Exception && e.toString().startsWith('Exception:')) rethrow;
+      }
+      throw Exception('No se pudo activar el pago en efectivo.');
+    }
+    if (response.statusCode != 200) {
+      throw Exception('No se pudo activar el pago (${response.statusCode})');
+    }
+
+    final decoded = jsonDecode(response.body);
+    Map<String, dynamic>? map;
+    if (decoded is Map && decoded['venta'] is Map) {
+      map = Map<String, dynamic>.from(decoded['venta'] as Map);
+    } else if (decoded is Map && decoded['data'] is Map) {
+      map = Map<String, dynamic>.from(decoded['data'] as Map);
+    }
+    if (map == null) {
+      throw Exception('Respuesta de activación inválida');
     }
     return Venta.fromJson(map);
   }
