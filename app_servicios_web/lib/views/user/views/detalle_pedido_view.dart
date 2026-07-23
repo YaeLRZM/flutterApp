@@ -288,49 +288,73 @@ class _DetallePedidoViewState extends State<DetallePedidoView> {
           ],
           if (v.debeMostrarContadorConfirmacion) ...[
             const SizedBox(height: 12),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-              decoration: BoxDecoration(
-                color: const Color(0xFFFFF3E0),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: const Color(0xFFFFCC80)),
-              ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Icon(
-                    Icons.timer_outlined,
-                    size: 18,
-                    color: Color(0xFFE65100),
+            Builder(
+              builder: (context) {
+                final esDev = v.esDevolucionEnProceso;
+                final bg =
+                    esDev ? const Color(0xFFF3E5F5) : const Color(0xFFFFF3E0);
+                final border =
+                    esDev ? const Color(0xFFCE93D8) : const Color(0xFFFFCC80);
+                final fg =
+                    esDev ? const Color(0xFF6A1B9A) : const Color(0xFFE65100);
+                return Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
                   ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      v.mensajeTiempoConfirmacion().trim().isEmpty
-                          ? 'Se completará automáticamente'
-                          : v.mensajeTiempoConfirmacion(),
-                      style: const TextStyle(
-                        fontSize: 13,
-                        color: Color(0xFFE65100),
-                        height: 1.4,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
+                  decoration: BoxDecoration(
+                    color: bg,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: border),
                   ),
-                  if (v.relojRestanteTexto != null) ...[
-                    const SizedBox(width: 8),
-                    Text(
-                      v.relojRestanteTexto!,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w900,
-                        color: Color(0xFFE65100),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(Icons.timer_outlined, size: 18, color: fg),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            if (esDev)
+                              Text(
+                                'Tiempo restante de devolución',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w800,
+                                  color: fg,
+                                ),
+                              ),
+                            Text(
+                              v.mensajeTiempoConfirmacion().trim().isEmpty
+                                  ? 'Se completará automáticamente'
+                                  : v.mensajeTiempoConfirmacion(),
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: fg,
+                                height: 1.4,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                  ],
-                ],
-              ),
+                      if (v.relojRestanteTexto != null) ...[
+                        const SizedBox(width: 8),
+                        Text(
+                          v.relojRestanteTexto!,
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w900,
+                            color: fg,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                );
+              },
             ),
           ],
           if (v.sePuedeCancelar) ...[

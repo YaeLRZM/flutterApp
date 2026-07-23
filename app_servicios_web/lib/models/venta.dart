@@ -211,6 +211,10 @@ class Venta {
       case 'cancelada':
       case 'cancelado':
         return 'Cancelado';
+      case 'devolucion_en_proceso':
+        return 'En devolución';
+      case 'devuelto':
+        return 'Devuelto';
       case 'pendiente':
         return 'Pendiente';
       case 'completada':
@@ -224,6 +228,7 @@ class Venta {
 
   /// Cancelable según estados del backend.
   bool get sePuedeCancelar {
+    // Misma regla que backend: no cancelar entregadas, canceladas ni en devolución.
     const ok = {
       'pendiente',
       'pendiente_activacion',
@@ -258,6 +263,7 @@ class Venta {
     return null;
   }
 
+  /// Contador en vivo (pago automático o devolución de 2 min).
   bool get debeMostrarContadorConfirmacion {
     final m = momentoProximoEstado;
     if (m == null) return false;
@@ -266,8 +272,23 @@ class Venta {
       'listo_pagar',
       'pago_acreditado',
       'en_curso',
+      'devolucion_en_proceso',
     };
     return conTimer.contains(estadoClave);
+  }
+
+  bool get esDevolucionEnProceso => estadoClave == 'devolucion_en_proceso';
+
+  /// ¿Cuenta en totales de dinero (ingreso)?
+  /// No: cancelada / devuelto.
+  /// Sí: resto, incluido “en devolución” (se descuenta al pasar a devuelto).
+  bool get cuentaComoIngreso {
+    const excluidos = {
+      'cancelada',
+      'cancelado',
+      'devuelto',
+    };
+    return estadoClave.isNotEmpty && !excluidos.contains(estadoClave);
   }
 
   Duration? get tiempoRestanteAutoCompletar {
@@ -277,14 +298,14 @@ class Venta {
     return left.isNegative ? Duration.zero : left;
   }
 
+  /// Reloj MM:SS o “0 s” (compartido comprador / vendedor / coherente).
   String? get relojRestanteTexto {
     final left = tiempoRestanteAutoCompletar;
     if (left == null) return null;
-    if (left == Duration.zero) return '0 s';
+    if (left == Duration.zero) return '00:00';
     final min = left.inMinutes;
     final s = left.inSeconds % 60;
-    if (min > 0) return '$min:${s.toString().padLeft(2, '0')}';
-    return '$s s';
+    return '${min.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
   }
 
   String mensajeTiempoConfirmacion({bool esVendedor = false}) {
@@ -298,6 +319,22 @@ class Venta {
     }
 
     final left = tiempoRestanteAutoCompletar;
+
+    // Devolución admin: mensaje específico y claro.
+    if (esDevolucionEnProceso) {
+      if (left == null) {
+        return 'La devolución está en proceso.';
+      }
+      if (left == Duration.zero) {
+        return esVendedor
+            ? 'Actualizando: la devolución está por completarse…'
+            : 'Tu devolución se está completando…';
+      }
+      return esVendedor
+          ? 'Devolución en proceso. Tiempo restante: ${relojRestanteTexto ?? ''}'
+          : 'La devolución está en proceso. Tiempo restante: ${relojRestanteTexto ?? ''}';
+    }
+
     final nextLabel = switch (estadoClave) {
       'listo_pagar' => 'pago acreditado',
       'pago_acreditado' => 'en curso',
@@ -316,14 +353,10 @@ class Venta {
           ? 'Actualizando estado…'
           : 'Tu compra se está actualizando…';
     }
-    final min = left.inMinutes;
-    final s = left.inSeconds % 60;
-    final reloj = min > 0
-        ? '$min min ${s.toString().padLeft(2, '0')} s'
-        : '$s s';
+    final reloj = relojRestanteTexto ?? '';
     return esVendedor
-        ? 'Pasará a $nextLabel en aproximadamente $reloj.'
-        : 'Pasará a $nextLabel en aproximadamente $reloj.';
+        ? 'Pasará a $nextLabel. Tiempo restante: $reloj'
+        : 'Pasará a $nextLabel. Tiempo restante: $reloj';
   }
 }
 

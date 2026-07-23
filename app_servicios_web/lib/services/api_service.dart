@@ -37,7 +37,7 @@ class ApiService {
 
   // Cambia esto dependiendo de si usas emulador o teléfono físico
   static const bool useAndroidEmulator =
-      true; // true si usas el emulador de Android Studio
+      false; // true si usas el emulador de Android Studio
 
   static String get baseUrl {
     if (kIsWeb) {
@@ -48,7 +48,7 @@ class ApiService {
       if (useAndroidEmulator) {
         return 'http://10.0.2.2:8000/api'; // SIEMPRE así para el emulador en Android Studio
       } else {
-        return 'http://127.0.0.1:8001/api'; // para usar el telefono en la mac, por que no queria funcionar
+        return 'http://10.76.167.106:8000/api'; // para usar el telefono en la mac, por que no queria funcionar
       }
     }
 

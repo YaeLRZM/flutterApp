@@ -547,7 +547,7 @@ class _CodigoBarrasMini extends StatelessWidget {
   }
 }
 
-/// Contador de auto-confirmación (next_state_at / auto_complete_at).
+/// Contador de auto-confirmación o devolución (next_state_at / auto_complete_at).
 class _CompraCountdownChip extends StatelessWidget {
   final Venta venta;
 
@@ -559,47 +559,62 @@ class _CompraCountdownChip extends StatelessWidget {
     final display =
         msg.trim().isEmpty ? 'Se completará automáticamente' : msg;
     final reloj = venta.relojRestanteTexto;
+    final esDevolucion = venta.esDevolucionEnProceso;
+    final bg = esDevolucion ? const Color(0xFFF3E5F5) : const Color(0xFFFFF3E0);
+    final border =
+        esDevolucion ? const Color(0xFFCE93D8) : const Color(0xFFFFCC80);
+    final fg = esDevolucion ? const Color(0xFF6A1B9A) : const Color(0xFFE65100);
 
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: const Color(0xFFFFF3E0),
+        color: bg,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: const Color(0xFFFFCC80)),
+        border: Border.all(color: border),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Padding(
-            padding: EdgeInsets.only(top: 1),
-            child: Icon(
-              Icons.timer_outlined,
-              size: 18,
-              color: Color(0xFFE65100),
-            ),
+          Padding(
+            padding: const EdgeInsets.only(top: 1),
+            child: Icon(Icons.timer_outlined, size: 18, color: fg),
           ),
           const SizedBox(width: 8),
           Expanded(
-            child: Text(
-              display,
-              style: const TextStyle(
-                fontSize: 12,
-                color: Color(0xFFE65100),
-                height: 1.35,
-                fontWeight: FontWeight.w600,
-              ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (esDevolucion)
+                  Text(
+                    'Tiempo restante de devolución',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                      color: fg,
+                    ),
+                  ),
+                Text(
+                  display,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: fg,
+                    height: 1.35,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
             ),
           ),
           if (reloj != null) ...[
             const SizedBox(width: 8),
             Text(
               reloj,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w900,
-                color: Color(0xFFE65100),
-                fontFeatures: [FontFeature.tabularFigures()],
+                color: fg,
+                fontFeatures: const [FontFeature.tabularFigures()],
               ),
             ),
           ],
