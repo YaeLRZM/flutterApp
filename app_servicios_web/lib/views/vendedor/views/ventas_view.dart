@@ -554,6 +554,10 @@ class _VentasViewState extends State<VentasView> {
     bool selected = false,
     VoidCallback? onTap,
   }) {
+    // Borde uniforme (mismo color en los 4 lados) + borderRadius.
+    // Flutter no permite borderRadius con bordes de colores distintos.
+    final borderColor = selected ? accent : const Color(0xFFE0D8D4);
+
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -561,26 +565,14 @@ class _VentasViewState extends State<VentasView> {
         borderRadius: BorderRadius.circular(14),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 160),
-          padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
           decoration: BoxDecoration(
             color: selected
-                ? accent.withValues(alpha: 0.08)
+                ? accent.withValues(alpha: 0.10)
                 : Colors.white,
             borderRadius: BorderRadius.circular(14),
-            border: Border(
-              left: BorderSide(color: accent, width: 4),
-              top: BorderSide(
-                color: selected ? accent : const Color(0xFFE8E2DE),
-                width: selected ? 1.5 : 1,
-              ),
-              right: BorderSide(
-                color: selected ? accent : const Color(0xFFE8E2DE),
-                width: selected ? 1.5 : 1,
-              ),
-              bottom: BorderSide(
-                color: selected ? accent : const Color(0xFFE8E2DE),
-                width: selected ? 1.5 : 1,
-              ),
+            border: Border.all(
+              color: borderColor,
+              width: selected ? 2 : 1,
             ),
             boxShadow: selected
                 ? [
@@ -592,54 +584,71 @@ class _VentasViewState extends State<VentasView> {
                   ]
                 : [
                     BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.03),
+                      color: Colors.black.withValues(alpha: 0.04),
                       blurRadius: 6,
                       offset: const Offset(0, 2),
                     ),
                   ],
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 0.4,
-                  color: selected ? accent : Colors.black54,
-                ),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                value,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w900,
-                  color: accent,
-                ),
-              ),
-              if (hint != null) ...[
-                const SizedBox(height: 2),
-                Text(
-                  hint,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w500,
-                    color: selected
-                        ? accent.withValues(alpha: 0.85)
-                        : Colors.black38,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(13),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // Acento lateral como widget (no como Border.left).
+                Container(width: 4, color: accent),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          label,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 0.4,
+                            color: selected
+                                ? accent
+                                : const Color(0xFF5E6668),
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          value,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w900,
+                            color: accent,
+                          ),
+                        ),
+                        if (hint != null) ...[
+                          const SizedBox(height: 2),
+                          Text(
+                            hint,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w500,
+                              color: selected
+                                  ? accent.withValues(alpha: 0.9)
+                                  : const Color(0xFF8A9194),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
                   ),
                 ),
               ],
-            ],
+            ),
           ),
         ),
       ),
