@@ -39,21 +39,23 @@ class ApiService {
   static const bool useAndroidEmulator =
       false; // true si usas el emulador de Android Studio
 
-  static String get baseUrl {
-    if (kIsWeb) {
-      return 'http://127.0.0.1:8000/api';
-    }
+  static const bool isProduction = true; // Cambia a false cuando programes localmente
 
-    if (Platform.isAndroid) {
-      if (useAndroidEmulator) {
-        return 'http://10.0.2.2:8000/api'; // SIEMPRE así para el emulador en Android Studio
-      } else {
-        return 'http://10.76.167.106:8000/api'; // para usar el telefono en la mac, por que no queria funcionar
-      }
-    }
-
-    return 'http://127.0.0.1:8000/api';
+static String get baseUrl {
+  if (isProduction) {
+    return 'https://ixemoda.up.railway.app/api';
   }
+
+  // Configuración de desarrollo local
+  if (kIsWeb) return 'http://127.0.0.1:8000/api';
+  if (Platform.isAndroid) {
+    return useAndroidEmulator
+        ? 'http://10.0.2.2:8000/api'
+        : 'http://10.76.167.106:8000/api';
+  }
+  return 'http://127.0.0.1:8000/api';
+}
+
 
   // ---------------------------------------------------------------------------
   // Almacenamiento de sesión
